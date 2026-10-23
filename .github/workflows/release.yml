@@ -20,7 +20,7 @@ jobs:
       id-token: write
     runs-on: ubuntu-latest
     container:
-      image: bytebase/bytebase-action
+      image: bytebase/bytebase-action:cloud
     outputs:
       bytebase-plan: ${{ steps.set-output.outputs.plan }}
     steps:
@@ -56,7 +56,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: test
     container:
-      image: bytebase/bytebase-action
+      image: bytebase/bytebase-action:cloud
     steps:
       - uses: actions/checkout@v4
       - name: Exchange token
@@ -84,7 +84,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: prod
     container:
-      image: bytebase/bytebase-action
+      image: bytebase/bytebase-action:cloud
     steps:
       - uses: actions/checkout@v4
       - name: Exchange token

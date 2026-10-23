@@ -10,7 +10,7 @@ jobs:
       pull-requests: write
     runs-on: ubuntu-latest
     container:
-      image: bytebase/bytebase-action
+      image: bytebase/bytebase-action:cloud
     env:
       BYTEBASE_URL: https://cloud.bytebase.com
       BYTEBASE_WORKLOAD_IDENTITY: sb-employee@gitops-elg0.workload.bytebase.com
