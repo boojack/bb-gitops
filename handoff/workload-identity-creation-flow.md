@@ -31,7 +31,7 @@ Verified on `main` at `f52ecbc`, in `CreateWorkloadIdentitySheet`
   asks for visible choices with descriptions when choosing an identity-provider type.
 - **What signs in is hidden.** The subject pattern decides which jobs may sign in, and it sits
   under Advanced. Editing Owner, Repository or Branch recomputes it from scratch. That widens a
-  hand-written pattern such as `repo:o/r:environment:prod` to `repo:o/r:*` (comment at line 257).
+  hand-written pattern such as `repo:o/r:environment:prod` to `repo:o/r:*` (comment at lines 252 to 259).
 - **No owner ID.** GitHub moves repositories created, renamed or transferred after 2026-07-15 to
   ID-based subjects (`repo:owner@123/name@456:...`). #21931 makes the server accept both formats
   for a name pattern, and it also accepts `repo:owner@ID/...`, which survives the owner name being
@@ -93,9 +93,9 @@ The pattern is built from the fields:
 
 | Fields | Pattern |
 |---|---|
-| Owner `boojack` | `repo:boojack/*` |
-| Owner, Repository `bb-gitops` | `repo:boojack/bb-gitops:*` |
-| Owner, Owner ID `123`, Repository | `repo:boojack@123/bb-gitops:*` |
+| Owner `acme-corp` | `repo:acme-corp/*` |
+| Owner, Repository `deploy` | `repo:acme-corp/deploy:*` |
+| Owner, Owner ID `111`, Repository | `repo:acme-corp@111/deploy:*` |
 | Group `acme`, Project `deploy` | `project_path:acme/deploy:*` |
 
 It follows the grammar the server parses in `backend/plugin/idp/wif/github.go`
@@ -115,7 +115,7 @@ environment." After Edit:
 - A pattern that names one environment shows a warning: only jobs with that `environment:` can
   sign in, and jobs without one, such as the GitOps review job, will fail.
 
-While Owner ID is empty, GitHub shows a warning: "This trusts the name boojack alone. If the name
+While Owner ID is empty, GitHub shows a warning: "This trusts the name acme-corp alone. If the name
 is ever freed, someone else can register it and sign in. Add the owner ID to prevent this."
 There is no field for the branch, tag, event or environment. Today's Branch and GitLab
 "Allowed branches/tags" fields are dropped; a pattern edit still expresses them (D9).
@@ -138,7 +138,7 @@ the IAM policy with the role. If the role call fails, the identity already exist
 still moves to Done, which shows the error and says the role was not granted.
 
 **D5 · Step 4, Done: the email, then an optional check.** "Workload identity created. Jobs in
-boojack/bb-gitops can now sign in to project gitops-elg0 as this identity." The email follows, with
+acme-corp/deploy can now sign in to project acme-deploy as this identity." The email follows, with
 a Copy button and the hint "Set it as `BYTEBASE_WORKLOAD_IDENTITY` in your workflow. Workflows
 generated on the GitOps page already use it."
 
@@ -230,7 +230,7 @@ message beside it. Today the sheet opens Advanced instead.
 - The API still accepts an identity with no role; the role is required only in the UI.
 - The GitOps page reads Owner and Repository from the pattern with
   `parseWorkloadIdentitySubjectPattern` (`frontend/src/utils/workloadIdentity.ts`). It is taught
-  to drop `@ID` parts, so `repo:boojack@123/bb-gitops:*` gives owner `boojack`, not `boojack@123`,
+  to drop `@ID` parts, so `repo:acme-corp@111/deploy:*` gives owner `acme-corp`, not `acme-corp@111`,
   and its repository link stays right.
 
 ## States
@@ -263,6 +263,7 @@ message beside it. Today the sheet opens Advanced instead.
 | File | Change |
 |---|---|
 | `frontend/src/utils/workloadIdentity.ts` | Drop `@ID` from GitHub owner and repository (D9). Ships first, on its own. |
+| `frontend/src/utils/workloadIdentity.test.ts` | New: tests for that parser. |
 | `frontend/src/components/ui/step-indicator.tsx` | `orientation="vertical"` and an optional `description` per step (D1). The horizontal default is unchanged. |
 | `frontend/src/components/ui/` (tag input) | Reuse `Combobox multiple` if it accepts typed values; otherwise a small `TagInput` (D2). |
 | `frontend/src/components/WorkloadIdentityFlow/subjectPattern.ts` | New: build, parse and replace-one-part for GitHub and GitLab patterns (D3). |
@@ -276,15 +277,15 @@ message beside it. Today the sheet opens Advanced instead.
 
 Tests:
 
-- `workloadIdentity.test.ts`: `@ID` dropped from owner and repository.
+- `workloadIdentity.test.ts` (new): `@ID` dropped from owner and repository.
 - `subjectPattern.test.ts`: build, parse and replace round trips; ID forms; an unparsable pattern;
   a field change never widens. The cases mirror `backend/plugin/idp/wif/github_test.go`, so the
   form and the server read a pattern the same way.
 - `testWorkflow.test.ts`: the GitHub file and the GitLab job parse as YAML and carry the URL,
   email and audience.
 - `WorkloadIdentityDialog.test.tsx`:
-  - GitHub create sends `repo:boojack/bb-gitops:*`, audiences `[bytebase]`, and the role.
-  - Owner ID gives `repo:boojack@123/bb-gitops:*`.
+  - GitHub create sends `repo:acme-corp/deploy:*`, audiences `[bytebase]`, and the role.
+  - Owner ID gives `repo:acme-corp@111/deploy:*`.
   - Other OIDC sends its JWKS URL.
   - Edit keeps the stored `jwks_url` and the pattern's remainder when only Owner changes.
   - Edit of an identity with no provider requires picking one.
