@@ -14,7 +14,7 @@ every identity that signs in today keeps signing in.** Frontend only: no proto, 
 migration change.
 
 The step layout follows the Claude Platform's "Connect workload" wizard (left rail, one question
-and one sentence per step, choice cards). The mock-up (v40, with desktop, phone and variant
+and one sentence per step, choice cards). The mock-up (v41, with desktop, phone and variant
 screens) is kept outside the repo.
 
 ## Problem
@@ -122,7 +122,10 @@ environment." After Edit:
 While Owner ID is empty, GitHub shows a warning with a title and a body. Title: "This rule trusts
 the name acme-corp alone". Body: "If the acme-corp account is renamed or deleted, GitHub frees the
 name and anyone can register it. Workflows in their repositories would then match this rule and
-sign in to Bytebase as this identity. Add the owner ID to tie the rule to this account."
+sign in to Bytebase as this identity. Add the owner ID to tie the rule to this account." The
+warning ends with the link "GitHub docs: immutable subject claims", which opens
+https://docs.github.com/en/actions/reference/security/oidc#immutable-subject-claims in a new tab. It is the one external link in the dialog, because the
+risk is GitHub's behavior and GitHub's page explains it.
 There is no field for the branch, tag, event or environment. Today's Branch and GitLab
 "Allowed branches/tags" fields are dropped; a pattern edit still expresses them (D9).
 
@@ -318,6 +321,7 @@ Tests:
 - A live sign-in status in the dialog.
 - Branch, tag, event or environment fields; the pattern edit covers them.
 - A GitLab group ID.
-- "Read more" or setup-guide links in the dialog, and the Bytebase docs page for workload identity.
+- "Read more" or setup-guide links in the dialog (the GitHub link in the owner warning is the one
+  exception), and the Bytebase docs page for workload identity.
 
 [#21931]: https://github.com/bytebase/bytebase/pull/21931
