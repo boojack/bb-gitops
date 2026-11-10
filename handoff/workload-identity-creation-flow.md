@@ -49,43 +49,50 @@ Verified on `main` at `f52ecbc`, in `CreateWorkloadIdentitySheet`
 
 ## Decisions
 
-**D1 · Four steps in a centered dialog.** Steps: Token source, Repositories, Account, Done. A left
-rail shows each step's title and one-line description ("Select the CI provider", "Match owner and
-repository", "Email and role", "Use it in your workflow"). Finished steps turn green and the line
-between them follows. The footer is fixed: Back (secondary, from step 2), Cancel, and
-Continue / Create (primary). Each step is validated before Continue, with errors beside the
-fields, and Back keeps what was entered. The dialog has a fixed height: 680px, or the window
-height minus 64px when the window is smaller. The buttons stay in the same place on every step; a
-short step leaves space above them, and a long one scrolls inside the step body. The scroll area
-leaves room for focus rings, so no field border is cut. This is a `Dialog`, not the wide sheet that the UX
-contract suggests for short wizards. The rail with descriptions and the side-by-side layout follow
-the Claude Platform wizard that the flow is modelled on, and a side sheet leaves the form too
-little width beside the rail. All other wizard rules in the contract apply. Rejected: one page with
-sections; it keeps today's problem of a long form with no order.
+**D1 · Four steps in a centered dialog.** Title "Create workload identity" with a close button.
+Steps: Token source, Repositories, Account, Done. A 224px left rail shows each step's title and
+one-line description ("Select the CI provider", "Match owner and repository", "Email and role",
+"Use it in your workflow"). Finished steps turn green and the line between them follows; a step can
+be clicked to go back to it, or forward past steps that are complete. The footer: Back (bordered,
+with a left arrow, from step 2) on the left; Cancel and Continue / Create (primary) on the right;
+on Done, only Done. Each step is validated before Continue, with errors beside the fields, and
+Back keeps what was entered. Every step opens scrolled to its top. The dialog has a fixed height:
+680px, or the window height minus 64px when the window is smaller. The buttons stay in the same
+place on every step; a short step leaves space above them, and a long one scrolls inside the step
+body. The scroll area leaves 4px of room for focus rings, so no field border is cut. Fields use the
+shared label, with a grey "(optional)" on optional fields, and their hint below the input. This
+is a `Dialog`, not the wide sheet that the UX contract suggests for short wizards. The rail with
+descriptions and the side-by-side layout follow the Claude Platform wizard that the flow is
+modelled on, and a side sheet leaves the form too little width beside the rail. All other wizard
+rules in the contract apply. Rejected: one page with sections; it keeps today's problem of a long
+form with no order.
 
 **D2 · Step 1, Token source: "Where do your CI jobs get their token?"** Three choice cards
-(`RadioGroup` with choice-card styling): GitHub Actions, GitLab CI, Other OIDC. GitHub Actions is
-selected when the dialog opens for a new identity. Then, for the chosen provider:
+(`RadioGroup` with the radio hidden; each card shows an icon, a title and a subtitle): GitHub
+Actions, GitLab CI, Other OIDC. GitHub Actions is selected when the dialog opens for a new
+identity. Below a separator, for the chosen provider:
 
-- **GitHub and GitLab.** One sentence, then Issuer URL and Audiences, prefilled from today's
-  `PLATFORM_PRESETS` (`https://token.actions.githubusercontent.com`, `https://gitlab.com`,
-  audience `bytebase`). Both are shown read-only, each with an Edit link. Edit turns Issuer URL
-  into an input with the hint "Change it only for GitHub Enterprise Server, GHE.com, or an
-  enterprise custom issuer." Edit turns Audiences into a tag input: Enter adds a value, × removes
-  one, at least one is required, and Reset restores `bytebase`.
-- **Other OIDC.** Issuer URL (required), Audiences (required, tag input) and JWKS URL (optional,
-  last). All are editable from the start, because there is no preset. JWKS URL hint: "Where
-  Bytebase downloads the issuer's public keys. Leave blank if the issuer publishes
-  `/.well-known/openid-configuration`." GitHub and GitLab never show JWKS URL, because both publish
-  discovery documents.
+- **GitHub and GitLab.** One sentence, then Issuer URL and Audiences, prefilled
+  (`https://token.actions.githubusercontent.com` or `https://gitlab.com`, and audience
+  `GENERATED_WORKFLOW_AUDIENCE`, `bytebase`). Issuer URL is shown read-only in monospace and
+  Audiences as chips, each with an Edit link. Issuer URL always has the hint "Change it only for
+  GitHub Enterprise Server, GHE.com, or an enterprise custom issuer." (GitLab: "Change it only for
+  a self-managed GitLab instance, to that instance's URL."). Edit turns Issuer URL into an input
+  and Audiences into the shared `TagInput`: Enter adds a value, × removes one, and at least one is
+  required. After Edit the link reads Reset, which puts the preset back.
+- **Other OIDC.** Issuer URL (required), Audiences (required, starts with `bytebase`) and JWKS URL
+  (optional, last). All are editable from the start. JWKS URL hint: "Where Bytebase downloads the
+  issuer's public keys. Leave blank if the issuer publishes `/.well-known/openid-configuration`."
+  GitHub and GitLab never show JWKS URL, because both publish discovery documents.
 
-Changing the provider resets the issuer, audiences, JWKS URL and subject pattern, as today.
+Changing the provider resets the issuer, audiences, JWKS URL, fields and subject pattern, as today.
 
 **D3 · Step 2, Repositories: the fields fold into `subject_pattern`.** No new stored field. The
 fields are a view of the one stored pattern.
 
 - **GitHub.** Owner (required), Repository (optional, blank means any repository of the owner),
-  Owner ID (optional, digits only). Owner ID hint: "Get it with `gh api users/<owner> --jq .id`. It never changes, even when the account is renamed."
+  Owner ID (optional, digits only). Owner ID hint: "Get it with `gh api users/OWNER --jq .id`. It
+  never changes, even when the account is renamed.", with the typed owner in place of OWNER.
 - **GitLab.** Group (required), Project (optional). There is no group ID: GitLab's subject has no
   place for one.
 - **Other OIDC.** The step is titled "Which tokens can sign in?" and has only Subject pattern
@@ -110,11 +117,13 @@ Below the fields, Subject pattern is shown read-only with an Edit link and the h
 - Typing in the pattern updates the fields from it.
 - Changing a field afterwards replaces only that field's part and keeps the rest of the pattern
   (for example `:environment:prod`). It never widens the pattern.
-- Reset rebuilds the pattern from the fields.
+- Clearing Repository while the pattern names more than the repository is refused, with "The
+  pattern names more than the repository. Reset it before clearing the repository."
+- Reset rebuilds the pattern from the fields, and makes it read-only again.
 - A pattern the fields cannot read, for example one that doesn't start with `repo:OWNER/`,
   disables the fields. The pattern is then matched by prefix only, as today.
-- A pattern that names one environment shows a warning: only jobs with that `environment:` can
-  sign in, and jobs without one, such as the GitOps review job, will fail.
+- A pattern that names one environment shows a warning: "Only jobs with `environment: prod` can
+  sign in. Jobs without an environment, such as the SQL review job, will fail."
 
 For GitHub, a box below Owner ID explains the owner ID. It is always shown, from the moment the
 step opens, with the same text, so typing Owner or Owner ID never changes the step's height. While
@@ -132,15 +141,19 @@ There is no field for the branch, tag, event or environment. Today's Branch and 
 - **Email** (required). The name is prefilled from the repository name plus `-ci` (for example
   `deploy-ci`), or from the owner name plus `-ci` when Repository is blank. The fixed suffix is shown beside it (`@<project>.workload.bytebase.com`, or
   `@workload.bytebase.com` at workspace level). A debounced `fetchWorkloadIdentity` lookup shows
-  "Already used" before Create. A deleted identity also counts as used, because the server refuses
-  the email. Hint: "Your workflow signs in with this email. It cannot be changed later."
-- **Display name** (optional). Blank uses the email name, as today.
+  "Already used by another workload identity." before Create. A deleted identity also counts as
+  used, because the server refuses the email. Hint: "Your workflow signs in with this email. It
+  cannot be changed later."
+- **Display name** (optional). Hint: "Shown in member lists. Blank uses the email name." Its
+  placeholder is the email name.
 - **Role** (required, last). Prefilled with GitOps Service Agent (`roles/gitopsServiceAgent`) and
   shown read-only with an Edit link. It comes last for the same reason Subject pattern does in
   step 2: it is a prefilled value that the user rarely changes. Edit turns it into the shared
-  `RoleSelect` in single-select mode (`multiple={false}`, with `scope="project"` in a project),
-  and Reset puts the default back. The default is the same at project and workspace level. At
-  workspace level the hint says the role applies in every project. A user without
+  `RoleSelect` in single-select mode (`multiple={false}`, `clearable={false}`, with
+  `scope="project"` in a project), and Reset puts the default back. The default is the same at
+  project and workspace level. Hints: "What the account can do in this project. GitOps Service
+  Agent is the role GitOps workflows need." and, at workspace level, "What the account can do in
+  every project of this workspace." A user without
   `bb.projects.setIamPolicy` (`bb.workspaces.setIamPolicy` at workspace level) sees a warning in
   place of the value, with no Edit link. Create stays allowed and no role is granted. Today the
   field is hidden.
@@ -150,13 +163,15 @@ the IAM policy with the role. If the role call fails, the identity already exist
 still moves to Done, which shows the error and says the role was not granted.
 
 **D5 · Step 4, Done: the email, then an optional check.** "Workload identity created. Jobs in
-acme-corp/deploy can now sign in to project acme-deploy as this identity." The email follows, with
-a Copy button and the hint "Set it as `BYTEBASE_WORKLOAD_IDENTITY` in your workflow. Workflows
+acme-corp/deploy can now sign in to project acme-deploy as this identity." (the project's title;
+"any repository of acme-corp" when Repository is blank). The email follows in a grey box with a
+Copy link and the hint "Set it as `BYTEBASE_WORKLOAD_IDENTITY` in your workflow. Workflows
 generated on the GitOps page already use it."
 
-Below a separator, the section "Check that it signs in (optional)" shows one complete test file,
-with a Copy button at the top right of the code block.
-For GitHub, `.github/workflows/bytebase-wif-test.yml`:
+Below a separator, the section "Check that it signs in" (with a grey "(optional)") and "Run this
+workflow once to confirm the identity works before you rely on it." show the file name and one
+complete test file, with the shared Copy button at the top right of the code block. Other OIDC has
+no test section. For GitHub, `.github/workflows/bytebase-wif-test.yml`:
 
 ```yaml
 name: bytebase-wif-test
@@ -186,8 +201,9 @@ jobs:
           echo "$RESPONSE" | jq '.accessToken = "<redacted>"'
 ```
 
-For GitLab, a `bytebase-wif-test` job for `.gitlab-ci.yml` with `when: manual`, `id_tokens` with
-`aud: bytebase`, and the same exchange.
+For GitLab, a `bytebase-wif-test` job for `.gitlab-ci.yml`: `image: alpine:3.20`, `when: manual`,
+`id_tokens` with `aud: bytebase`, `apk add --no-cache curl jq`, the same exchange, and the `jq`
+redact line as its own script item.
 
 - The test runs on a push of its own file, on any branch. It needs no pull request to a protected
   main, and it does not run on other pushes. `workflow_dispatch` was rejected because it only
@@ -195,17 +211,19 @@ For GitLab, a `bytebase-wif-test` job for `.gitlab-ci.yml` with `when: manual`, 
 - `--fail-with-body` makes a refusal fail the job and print the server's reason. Plain `curl -sS`
   exits 0 on HTTP 401.
 - `<EXTERNAL_URL>` is the workspace's External URL. When `needConfigureExternalUrl()` is true,
-  the section asks the user to set it instead of showing a snippet.
+  the section shows the shared `ExternalUrlAlert` instead of a snippet.
 - The audience is the identity's first audience.
 
 Rejected: a live "waiting for the first sign-in" status in the dialog, which needs new backend
 state; the job log already shows the result and the refusal reason. Also rejected: an "Add to an
 existing workflow" tab, which repeated the generated GitOps workflow.
 
-**D6 · Edit reuses steps 1 to 3.** A one-line banner says the user is editing an existing identity:
-"Editing deploy-ci@acme-deploy.workload.bytebase.com. Changes apply from its next sign-in." Every
-step is reachable from the rail. The steps load what is stored: the issuer, the audiences, the JWKS
-URL, and the pattern, with the fields read from it. There is no separate path for identities made
+**D6 · Edit reuses steps 1 to 3.** The title is "Edit workload identity", and a compact one-line
+info banner says the user is editing an existing identity: "Editing
+deploy-ci@acme-deploy.workload.bytebase.com. Changes apply from its next sign-in." The rail has
+three steps, and every one is reachable from it. Steps 1 and 2 show Continue; step 3 shows
+Update. The steps load what is stored: the issuer, the audiences, the JWKS URL, and the pattern,
+with the fields read from it. There is no separate path for identities made
 by the old form.
 
 - **Email** is locked, as today.
@@ -218,17 +236,19 @@ by the old form.
   `workload_identity_config` only when the config changed, as today. The config always carries
   the stored `jwks_url`, also for GitHub and GitLab where the field is not shown.
 
-**D7 · A server error goes to its step.** An `InvalidArgument` that names `issuer_url`, `jwks_url`,
-`allowed_audiences` or `subject_pattern` moves the user to the step with that field and shows the
-message beside it. Today the sheet opens Advanced instead.
+**D7 · A server error goes to its step.** An `InvalidArgument` whose message names the provider,
+the JWKS URL, the subject, the audience, the issuer or the email (checked in that order) moves the
+user to the step with that field and shows "Bytebase cannot accept this configuration:" and the
+message beside it. Any other `InvalidArgument` is shown beside Subject pattern. Today the sheet
+opens Advanced instead.
 
 **D8 · Phone layout.** Below 640px:
 
 - The rail becomes one row at the top: numbered circles joined by lines, with only the current
-  step's title and no descriptions. This is the shared `StepIndicator` in its `fitOneRow` mode.
+  step's title and no descriptions. This is the shared `StepIndicator` with `variant="rail"`.
 - Fields go to one column.
 - The dialog fills the screen height minus 16px top and bottom. The title, the step row and the
-  footer stay in place; only the step body scrolls.
+  footer stay in place; only the step body scrolls. The footer gets a top border.
 - The email suffix moves under the name.
 - Code blocks scroll sideways.
 - The dialog sets its own width (full width minus 16px each side), because the shared
@@ -252,7 +272,7 @@ message beside it. Today the sheet opens Advanced instead.
 
 | Provider | Step 1 shows | Step 2 shows | Step 4 test |
 |---|---|---|---|
-| GitHub Actions | Issuer, Audiences (read-only, Edit) | Owner, Repository, Owner ID, Subject pattern (read-only, Edit) | `.github/workflows/bytebase-wif-test.yml` |
+| GitHub Actions | Issuer, Audiences (read-only, Edit) | Owner, Repository, Owner ID, owner ID box, Subject pattern (read-only, Edit) | `.github/workflows/bytebase-wif-test.yml` |
 | GitLab CI | Issuer, Audiences (read-only, Edit) | Group, Project, Subject pattern (read-only, Edit) | `bytebase-wif-test` job |
 | Other OIDC | Issuer, Audiences, JWKS URL (editable) | Subject pattern (editable) | None |
 
@@ -279,37 +299,53 @@ message beside it. Today the sheet opens Advanced instead.
 |---|---|
 | `frontend/src/utils/workloadIdentity.ts` | Drop `@ID` from GitHub owner and repository (D9). Ships first, on its own. |
 | `frontend/src/utils/workloadIdentity.test.ts` | New: tests for that parser. |
-| `frontend/src/components/ui/step-indicator.tsx` | `orientation="vertical"` and an optional `description` per step (D1). The horizontal default is unchanged. |
-| `frontend/src/components/ui/` (tag input) | Reuse `Combobox multiple` if it accepts typed values; otherwise a small `TagInput` (D2). |
-| `frontend/src/components/WorkloadIdentityFlow/subjectPattern.ts` | New: build, parse and replace-one-part for GitHub and GitLab patterns (D3). |
-| `frontend/src/components/WorkloadIdentityFlow/testWorkflow.ts` | New: the GitHub test file and GitLab job (D5). |
-| `frontend/src/components/WorkloadIdentityFlow/StepParts.tsx` | New: the step heading and the field title with its Edit and Reset links, shared by the steps. |
-| `frontend/src/components/WorkloadIdentityFlow/WorkloadIdentityDialog.tsx` | New: the dialog, keeping the stable-entity ref and keyed inner form (D1, D6, D7, D8). |
+| `frontend/src/components/ui/step-indicator.tsx` and its test | `orientation="vertical"` with an optional `description` per step, an opt-in `variant="rail"` row for phones, and an optional `onStepClick` (D1, D8). The horizontal default is unchanged. |
+| `frontend/src/components/ui/tag-input.tsx` and its test | New: a free-text tag input with a read-only chip mode; `Combobox` does not take typed values (D2). |
+| `frontend/src/components/RoleSelect.tsx` | An opt-in `clearable` prop for single-select mode; other callers are unchanged (D4). |
+| `frontend/src/components/WorkloadIdentityFlow/subjectPattern.ts` and its test | New: build, parse and replace-one-part for GitHub and GitLab patterns (D3). |
+| `frontend/src/components/WorkloadIdentityFlow/testWorkflow.ts` and its test | New: the GitHub test file and GitLab job (D5). |
+| `frontend/src/components/WorkloadIdentityFlow/StepParts.tsx` | New: the step heading, the field with its label, Edit or Reset link and hint, and inline code for hints. |
+| `frontend/src/components/WorkloadIdentityFlow/WorkloadIdentityDialog.tsx` and its test | New: the dialog, keeping the stable-entity ref and keyed inner form; state, validation and submit (D1, D6, D7, D8). |
 | `frontend/src/components/WorkloadIdentityFlow/{TokenSource,Repositories,Account,Done}Step.tsx` | New: one component per step (D2–D5). |
 | `frontend/src/routes/workspace/WorkloadIdentitiesPage.tsx` | Opens the new dialog. |
 | `frontend/src/routes/project/ProjectGitOpsPage.tsx` | Opens the new dialog. |
 | `frontend/src/components/CreateWorkloadIdentitySheet.tsx` and its test | Deleted. |
-| `frontend/src/locales/*.json` | New strings in all five locales; strings no longer used are removed. |
+| `frontend/src/locales/{en-US,es-ES,ja-JP,vi-VN,zh-CN}.json` | New `workload-identity` strings in all five locales; the old sheet's strings that are no longer used are removed. |
+| `docs/design/workload-identity-creation-flow.md` | This document. |
 
 Tests:
 
-- `workloadIdentity.test.ts` (new): `@ID` dropped from owner and repository.
-- `subjectPattern.test.ts`: build, parse and replace round trips; ID forms; an unparsable pattern;
-  a field change never widens. The cases mirror `backend/plugin/idp/wif/github_test.go`, so the
-  form and the server read a pattern the same way.
+- `workloadIdentity.test.ts`: `@ID` dropped from owner and repository; GitLab patterns; another
+  provider's pattern.
+- `subjectPattern.test.ts`: parse, build and replace for both providers; round trips; ID forms;
+  unparsable patterns; a field change never widens; field validation; the environment a pattern
+  names. The GitHub parse cases mirror `backend/plugin/idp/wif/github_test.go`, so the form and
+  the server read a pattern the same way.
 - `testWorkflow.test.ts`: the GitHub file and the GitLab job parse as YAML and carry the URL,
-  email and audience.
+  email and audience; the GitLab redact line is its own script item.
+- `tag-input.test.tsx`: Enter adds, blanks and duplicates are ignored, × and Backspace remove, and
+  the read-only mode has no input or remove buttons.
+- `step-indicator.test.tsx`: the vertical rail with descriptions, the `rail` row and a step click.
 - `WorkloadIdentityDialog.test.tsx`:
   - GitHub create sends `repo:acme-corp/deploy:*`, audiences `[bytebase]`, and the default role,
-    GitOps Service Agent.
-  - Role is read-only until Edit; choosing another role after Edit sends that role.
+    GitOps Service Agent; Done shows the test file with its Copy button.
+  - A new identity opens on GitHub Actions with its issuer and audience.
+  - The email is prefilled from the owner plus `-ci` when Repository is blank.
+  - Every step opens scrolled to its top.
+  - The owner ID box is always shown for GitHub, as a warning and then as info, with its link;
+    GitLab shows none.
   - Owner ID gives `repo:acme-corp@111/deploy:*`.
-  - Other OIDC sends its JWKS URL.
-  - Edit keeps the stored `jwks_url` and the pattern's remainder when only Owner changes.
-  - Edit of an identity with no provider requires picking one.
+  - Role is read-only until Edit; a role picked after Edit is granted; Reset restores the default;
+    a cleared role blocks Create.
   - A user without IAM permission creates with no IAM call.
   - A failed role call shows the warning on Done.
-  - `InvalidArgument` for `subject_pattern` moves the user to step 2.
+  - An email another identity uses blocks Create.
+  - Other OIDC sends its JWKS URL.
+  - Edit keeps the stored `jwks_url` and the pattern's remainder when only Owner changes, and
+    Update stays disabled until something changes.
+  - Edit of an identity with no provider requires picking one, and keeps the stored pattern.
+  - Edit of an identity with no audiences requires one.
+  - An `InvalidArgument` about the subject pattern moves the user to step 2.
 - Manual: walk the flow on desktop and at 375px wide, as a project owner and as a workspace admin.
   Run the generated test file from a GitHub repository against a server with a public External
   URL.
