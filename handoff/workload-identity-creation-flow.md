@@ -14,7 +14,7 @@ every identity that signs in today keeps signing in.** Frontend only: no proto, 
 migration change.
 
 The step layout follows the Claude Platform's "Connect workload" wizard (left rail, one question
-and one sentence per step, choice cards). The mock-up (v37, with desktop, phone and variant
+and one sentence per step, choice cards). The mock-up (v38, with desktop, phone and variant
 screens) is kept outside the repo.
 
 ## Problem
@@ -61,8 +61,8 @@ little width beside the rail. All other wizard rules in the contract apply. Reje
 sections; it keeps today's problem of a long form with no order.
 
 **D2 · Step 1, Token source: "Where do your CI jobs get their token?"** Three choice cards
-(`RadioGroup` with choice-card styling): GitHub Actions, GitLab CI, Other OIDC. Then, for the
-chosen provider:
+(`RadioGroup` with choice-card styling): GitHub Actions, GitLab CI, Other OIDC. GitHub Actions is
+selected when the dialog opens for a new identity. Then, for the chosen provider:
 
 - **GitHub and GitLab.** One sentence, then Issuer URL and Audiences, prefilled from today's
   `PLATFORM_PRESETS` (`https://token.actions.githubusercontent.com`, `https://gitlab.com`,
@@ -122,16 +122,21 @@ There is no field for the branch, tag, event or environment. Today's Branch and 
 
 **D4 · Step 3, Account: "Who is it in Bytebase?"**
 
-- **Email** (required). The name is prefilled from Repository, or from Owner when Repository is
-  blank. The fixed suffix is shown beside it (`@<project>.workload.bytebase.com`, or
+- **Email** (required). The name is prefilled from the repository name plus `-ci` (for example
+  `deploy-ci`), or from the owner name plus `-ci` when Repository is blank. The fixed suffix is shown beside it (`@<project>.workload.bytebase.com`, or
   `@workload.bytebase.com` at workspace level). A debounced `fetchWorkloadIdentity` lookup shows
   "Already used" before Create. A deleted identity also counts as used, because the server refuses
   the email. Hint: "Your workflow signs in with this email. It cannot be changed later."
-- **Role** (required). Uses `RoleSelect`. The dialog takes `defaultRoles`, and the GitOps page
-  passes `roles/gitopsServiceAgent`. A user without `bb.projects.setIamPolicy`
-  (`bb.workspaces.setIamPolicy` at workspace level) sees the field disabled with a warning, and
-  Create stays allowed. Today the field is hidden.
 - **Display name** (optional). Blank uses the email name, as today.
+- **Role** (required, last). Prefilled with GitOps Service Agent (`roles/gitopsServiceAgent`) and
+  shown read-only with an Edit link. It comes last for the same reason Subject pattern does in
+  step 2: it is a prefilled value that the user rarely changes. Edit turns it into the shared
+  `RoleSelect` in single-select mode (`multiple={false}`, with `scope="project"` in a project),
+  and Reset puts the default back. The default is the same at project and workspace level. At
+  workspace level the hint says the role applies in every project. A user without
+  `bb.projects.setIamPolicy` (`bb.workspaces.setIamPolicy` at workspace level) sees a warning in
+  place of the value, with no Edit link. Create stays allowed and no role is granted. Today the
+  field is hidden.
 
 Create runs on leaving step 3. It makes the same two calls as today: create the identity, then set
 the IAM policy with the role. If the role call fails, the identity already exists, so the flow
@@ -250,8 +255,8 @@ message beside it. Today the sheet opens Advanced instead.
 
 | Role permission | Step 3 Role |
 |---|---|
-| Can set IAM policy | Required, `defaultRoles` preselected |
-| Cannot | Disabled with a warning; Create allowed, no IAM call |
+| Can set IAM policy | GitOps Service Agent, read-only with Edit |
+| Cannot | A warning in place of the value, no Edit; Create allowed, no IAM call |
 
 | Workspace | Step 4 test section |
 |---|---|
@@ -268,10 +273,11 @@ message beside it. Today the sheet opens Advanced instead.
 | `frontend/src/components/ui/` (tag input) | Reuse `Combobox multiple` if it accepts typed values; otherwise a small `TagInput` (D2). |
 | `frontend/src/components/WorkloadIdentityFlow/subjectPattern.ts` | New: build, parse and replace-one-part for GitHub and GitLab patterns (D3). |
 | `frontend/src/components/WorkloadIdentityFlow/testWorkflow.ts` | New: the GitHub test file and GitLab job (D5). |
+| `frontend/src/components/WorkloadIdentityFlow/StepParts.tsx` | New: the step heading and the field title with its Edit and Reset links, shared by the steps. |
 | `frontend/src/components/WorkloadIdentityFlow/WorkloadIdentityDialog.tsx` | New: the dialog, keeping the stable-entity ref and keyed inner form (D1, D6, D7, D8). |
 | `frontend/src/components/WorkloadIdentityFlow/{TokenSource,Repositories,Account,Done}Step.tsx` | New: one component per step (D2–D5). |
 | `frontend/src/routes/workspace/WorkloadIdentitiesPage.tsx` | Opens the new dialog. |
-| `frontend/src/routes/project/ProjectGitOpsPage.tsx` | Opens the new dialog with `defaultRoles` set to GitOps Service Agent. |
+| `frontend/src/routes/project/ProjectGitOpsPage.tsx` | Opens the new dialog. |
 | `frontend/src/components/CreateWorkloadIdentitySheet.tsx` and its test | Deleted. |
 | `frontend/src/locales/*.json` | New strings in all five locales; strings no longer used are removed. |
 
@@ -284,7 +290,9 @@ Tests:
 - `testWorkflow.test.ts`: the GitHub file and the GitLab job parse as YAML and carry the URL,
   email and audience.
 - `WorkloadIdentityDialog.test.tsx`:
-  - GitHub create sends `repo:acme-corp/deploy:*`, audiences `[bytebase]`, and the role.
+  - GitHub create sends `repo:acme-corp/deploy:*`, audiences `[bytebase]`, and the default role,
+    GitOps Service Agent.
+  - Role is read-only until Edit; choosing another role after Edit sends that role.
   - Owner ID gives `repo:acme-corp@111/deploy:*`.
   - Other OIDC sends its JWKS URL.
   - Edit keeps the stored `jwks_url` and the pattern's remainder when only Owner changes.

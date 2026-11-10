@@ -237,7 +237,7 @@ table.map { min-width: 560px; }
 <div class="wrap">
 
 <header style="display:flex;flex-direction:column;gap:12px">
-  <div class="eyebrow">BYT-10429 · includes BYT-10349 · Mock-up, 2026-11-09</div>
+  <div class="eyebrow">BYT-10429 · includes BYT-10349 · Mock-up, 2026-11-10</div>
   <h1>Create a workload identity</h1>
   <p class="lead">Five rules shape this flow:</p>
   <ul class="rules">
@@ -258,7 +258,7 @@ table.map { min-width: 560px; }
     <tbody>
       <tr><td>1 · Token source</td><td>Provider: GitHub Actions, GitLab CI, or Other OIDC. Then, for the chosen provider: one sentence, Issuer URL and Audiences (prefilled, read-only until Edit)</td><td>None</td></tr>
       <tr><td>2 · Repositories</td><td>Owner (required), Repository, Owner ID, Subject pattern (read-only until Edit)</td><td>None</td></tr>
-      <tr><td>3 · Account</td><td>Email (required), Role (required), Display name</td><td>None</td></tr>
+      <tr><td>3 · Account</td><td>Email (required), Display name, Role (prefilled with GitOps Service Agent, read-only until Edit)</td><td>None</td></tr>
       <tr><td>4 · Done</td><td>The created identity's email with Copy; then, below a separator, an optional "Check that it signs in" section with the test workflow file</td><td>None</td></tr>
     </tbody>
   </table></div>
@@ -336,13 +336,13 @@ table.map { min-width: 560px; }
       <div class="ccontent">
         <div class="q"><h3>Who is it in Bytebase?</h3><p>Jobs that sign in act as this account in project gitops-elg0.</p></div>
         <div class="f"><div class="lbl">Email</div><div class="in">bb-gitops-ci<span class="suffix">@gitops-elg0.workload.bytebase.com</span></div><div class="hint">Your workflow signs in with this email. It cannot be changed later.</div></div>
-        <div class="f"><div class="lbl">Role</div><div class="in">GitOps Service Agent <span>▾</span></div><div class="hint">What the account can do in this project.</div></div>
         <div class="f"><div class="lbl">Display name <span class="opt">(optional)</span></div><div class="in ph">bb-gitops-ci</div><div class="hint">Shown in member lists. Blank uses the email name.</div></div>
+        <div class="f"><div class="lbl ed"><span>Role</span><span class="act">Edit</span></div><div class="in ro" style="font-family:inherit">GitOps Service Agent</div><div class="hint">What the account can do in this project. GitOps Service Agent is the role GitOps workflows need.</div></div>
       </div>
     </div>
     <div class="cf"><span class="btn">← Back</span><div class="r"><span class="btn">Cancel</span><span class="btn pri">Create</span></div></div>
   </div>
-  <p class="note">Nothing is created before Create. Email is prefilled from the repository name, or the owner name when Repository is blank. If that name is taken, the field shows "Already used" before Create. Role is preselected when the flow starts from the GitOps page.</p>
+  <p class="note">Nothing is created before Create. Email is prefilled from the repository name, or the owner name when Repository is blank. If that name is taken, the field shows "Already used" before Create. Role is prefilled with GitOps Service Agent and read-only. Edit turns it into a role select, and Reset puts the default back. It comes last, like Subject pattern in step 2: a prefilled value that is rarely changed.</p>
 </section>
 
 <section>
@@ -428,14 +428,19 @@ table.map { min-width: 560px; }
     <div class="panel">
       <b>Workspace-level identity (Settings &gt; Members)</b>
       <div class="f"><div class="lbl">Email</div><div class="in">bb-gitops-ci<span class="suffix">@workload.bytebase.com</span></div></div>
-      <div class="f"><div class="lbl">Role</div><div class="in ph">Select a workspace role <span>▾</span></div><div class="hint">What the account can do in this workspace.</div></div>
-      <div class="vcap">No project in the email. Workspace roles only, nothing preselected, because GitOps Service Agent is a project role.</div>
+      <div class="f"><div class="lbl ed"><span>Role</span><span class="act">Edit</span></div><div class="in ro" style="font-family:inherit">GitOps Service Agent</div><div class="hint">What the account can do in every project of this workspace.</div></div>
+      <div class="vcap">No project in the email. The default role is the same. A role granted at workspace level applies in every project, and the hint says so. Edit also offers workspace roles.</div>
     </div>
     <div class="panel">
       <b>User can create identities but cannot grant roles</b>
-      <div class="f"><div class="lbl">Role</div><div class="in ph">GitOps Service Agent <span>▾</span></div></div>
+      <div class="f"><div class="lbl">Role</div></div>
       <div class="box warn"><span>⚠ You can't grant roles in this project. The identity is created without a role and can't do anything until a project owner grants one.</span></div>
-      <div class="vcap">Creating needs <code>bb.workloadIdentities.create</code>; granting a role needs <code>bb.projects.setIamPolicy</code>. Create stays allowed; the field is disabled with this warning.</div>
+      <div class="vcap">Creating needs <code>bb.workloadIdentities.create</code>; granting a role needs <code>bb.projects.setIamPolicy</code>. Create stays allowed. The warning takes the place of the value, there is no Edit link, and no role is granted.</div>
+    </div>
+    <div class="panel">
+      <b>Step 3 after clicking Edit</b>
+      <div class="f"><div class="lbl ed"><span>Role</span><span class="act">Reset</span></div><div class="in">GitOps Service Agent <span>▾</span></div><div class="hint">What the account can do in this project.</div></div>
+      <div class="vcap">Edit turns Role into a select with one role. In a project it lists project roles and custom roles. Reset puts GitOps Service Agent back and makes the field read-only again.</div>
     </div>
     <div class="panel">
       <b>Step 1 after clicking Edit</b>
