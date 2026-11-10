@@ -211,7 +211,10 @@ redact line as its own script item.
 - `--fail-with-body` makes a refusal fail the job and print the server's reason. Plain `curl -sS`
   exits 0 on HTTP 401.
 - `<EXTERNAL_URL>` is the workspace's External URL. When `needConfigureExternalUrl()` is true,
-  the section shows the shared `ExternalUrlAlert` instead of a snippet.
+  the test file is still shown, with the placeholder `https://YOUR-BYTEBASE-URL`, and a compact
+  warning above it: "The External URL is not set, so this file uses a placeholder. Replace
+  https://YOUR-BYTEBASE-URL with the address your CI jobs can reach, or set the External URL." with
+  a "Configure now" link. A run with the placeholder fails loudly ("Could not resolve host").
 - The audience is the identity's first audience.
 
 Rejected: a live "waiting for the first sign-in" status in the dialog, which needs new backend

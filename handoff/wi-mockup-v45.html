@@ -245,7 +245,7 @@ table.map { min-width: 560px; }
 <div class="wrap">
 
 <header style="display:flex;flex-direction:column;gap:12px">
-  <div class="eyebrow">BYT-10429 · includes BYT-10349 · Mock-up v44, 2026-11-10</div>
+  <div class="eyebrow">BYT-10429 · includes BYT-10349 · Mock-up v45, 2026-11-10</div>
   <h1>Create a workload identity</h1>
   <p class="lead">Five rules shape this flow:</p>
   <ul class="rules">
@@ -401,7 +401,7 @@ table.map { min-width: 560px; }
     </div>
     <div class="cf"><span></span><div class="r"><span class="btn pri">Done</span></div></div>
   </div>
-  <p class="note">Everything is created when you leave step 3. Step 4 is the done screen: the one value the workflow needs, plus an optional test. Compared with Claude's Test step, the test is optional and sits in its own section, runs only when its own file is pushed, on any branch, so it needs no PR to a protected main, the dialog does not listen for the result (the job log shows it), and there is no setup-guide link. The URL in the snippet is the workspace's External URL; when it is not set, the section asks for it instead of showing a snippet. When the flow starts from the GitOps page, the text says the generated workflow already signs in, so running it is the test.</p>
+  <p class="note">Everything is created when you leave step 3. Step 4 is the done screen: the one value the workflow needs, plus an optional test. Compared with Claude's Test step, the test is optional and sits in its own section, runs only when its own file is pushed, on any branch, so it needs no PR to a protected main, the dialog does not listen for the result (the job log shows it), and there is no setup-guide link. The URL in the snippet is the workspace's External URL. When it is not set, the snippet is still shown with the placeholder https://YOUR-BYTEBASE-URL, under a short warning that says to replace it or set the External URL. When the flow starts from the GitOps page, the text says the generated workflow already signs in, so running it is the test.</p>
   <p class="note">Editing reuses steps 1 to 3 with a banner, as Claude does. The provider is locked when editing, like the email, so a stored pattern is never rebuilt in another format. When no provider is stored, the provider cards start empty and required, as on create, because the server refuses a save without one. Every save sends back the stored JWKS URL unchanged, also for GitHub and GitLab where the field is not shown. The steps load what is stored: the issuer, the audiences, and the subject pattern, with Owner, Owner ID and Repository read from it. There is no separate path for identities made by the old form.</p>
 </section>
 
