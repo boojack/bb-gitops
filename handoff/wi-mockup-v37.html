@@ -1,0 +1,493 @@
+<title>Workload Identity Form Options</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column; each flow step is a full-width modal mock-up with a step rail on the left (stacks on phones) */
+:root {
+  --bg: #f5f6fa;
+  --surface: #ffffff;
+  --fg: #1c1e2b;
+  --muted: #5d6178;
+  --line: #dde0ea;
+  --accent: #4f46e5;
+  --accent-soft: #eceafd;
+  --on-accent: #ffffff;
+  --take: #1f7a4d; --take-bg: #e3f4ea;
+  --adapt: #8a5a00; --adapt-bg: #fbefd2;
+  --skip: #5d6178; --skip-bg: #ebedf3;
+  --warn-bg: #fdf3dc; --warn-line: #e9c46a;
+  --bad: #b42318;
+  --code-bg: #f0f1f6;
+  --shade: #8a8ea3;
+  --term-bg: #16171f; --term-fg: #d9dbe6; --term-err: #ff8a80; --term-hint: #9bd3ff;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12131b; --surface: #1b1d28; --fg: #e6e7ef; --muted: #a0a4b8; --line: #2f3242;
+  --accent: #9b95ff; --accent-soft: #2a2850; --on-accent: #12131b;
+  --take: #6fd39c; --take-bg: #17352a; --adapt: #f0c060; --adapt-bg: #3a2f14; --skip: #a0a4b8; --skip-bg: #262938;
+  --warn-bg: #3a2f14; --warn-line: #8a6a1e; --bad: #ff8a80; --code-bg: #232636; --shade: #6b6f85;
+  --term-bg: #0c0d12;
+  color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #12131b; --surface: #1b1d28; --fg: #e6e7ef; --muted: #a0a4b8; --line: #2f3242;
+  --accent: #9b95ff; --accent-soft: #2a2850; --on-accent: #12131b;
+  --take: #6fd39c; --take-bg: #17352a; --adapt: #f0c060; --adapt-bg: #3a2f14; --skip: #a0a4b8; --skip-bg: #262938;
+  --warn-bg: #3a2f14; --warn-line: #8a6a1e; --bad: #ff8a80; --code-bg: #232636; --shade: #6b6f85;
+  --term-bg: #0c0d12;
+  color-scheme: dark; }
+
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.55; }
+.wrap { max-width: 1040px; margin: 0 auto; padding-block: 40px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 52px; }
+h1, h2, h3 { text-wrap: balance; margin: 0; font-weight: 600; }
+h1 { font-size: 30px; line-height: 1.2; }
+h2 { font-size: 21px; }
+h3 { font-size: 17px; }
+p { margin: 0; max-width: 70ch; }
+code, .mono { font-family: var(--font-mono); font-size: 0.88em; }
+code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+a { color: var(--accent); }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+section { display: flex; flex-direction: column; gap: 16px; }
+.eyebrow { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+.lead { color: var(--muted); font-size: 16px; }
+.example { display: flex; flex-wrap: wrap; gap: 6px 20px; padding: 12px 16px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); font-size: 14px; }
+.note { border-left: 3px solid var(--line); padding-left: 12px; color: var(--muted); font-size: 14px; }
+.why { display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+.why ul { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
+.tag { font-size: 11px; font-weight: 600; color: var(--adapt); background: var(--adapt-bg); border-radius: 4px; padding: 0 6px; margin-left: 6px; vertical-align: 1px; white-space: nowrap; }
+
+/* modal mock-up */
+.modal { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 2px 10px rgba(20, 22, 40, 0.07); overflow: hidden; }
+.mh { padding: 14px 20px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.mh-title { font-weight: 600; font-size: 16px; }
+.mh a { font-size: 13px; text-decoration: none; }
+.mbody { display: grid; grid-template-columns: 200px 1fr; }
+.rail { border-right: 1px solid var(--line); padding: 18px 16px; display: flex; flex-direction: column; gap: 14px; background: var(--bg); }
+.rs { display: grid; grid-template-columns: 22px 1fr; gap: 0 8px; font-size: 13px; color: var(--muted); }
+.rs .n { width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--line); display: grid; place-items: center; font-size: 11px; font-weight: 600; grid-row: span 2; background: var(--surface); }
+.rs b { font-weight: 500; }
+.rs small { font-size: 12px; }
+.rs.on { color: var(--fg); }
+.rs.on .n { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
+.rs.done .n { border-color: var(--take); color: var(--take); }
+.content { padding: 20px 22px; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.q { display: flex; flex-direction: column; gap: 4px; }
+.q p { color: var(--muted); font-size: 14px; }
+.mf { padding: 12px 20px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; gap: 8px; }
+.mf .r { display: flex; gap: 8px; margin-left: auto; }
+.btn { font-size: 13px; padding: 5px 12px; border-radius: 4px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); white-space: nowrap; }
+.btn.pri { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+@media (max-width: 640px) {
+  .mbody { grid-template-columns: 1fr; }
+  .rail { border-right: 0; border-bottom: 1px solid var(--line); flex-direction: row; flex-wrap: wrap; gap: 10px 16px; }
+  .rs small { display: none; }
+  .rs .n { grid-row: auto; }
+}
+
+/* form pieces */
+.row2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+.f { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.lbl { font-size: 13px; font-weight: 500; }
+.lbl .req { color: var(--bad); margin-left: 2px; }
+.in { border: 1px solid var(--line); border-radius: 4px; padding: 6px 10px; font-size: 13px; color: var(--fg); background: var(--surface); min-height: 32px; display: flex; align-items: center; justify-content: space-between; gap: 6px; overflow: hidden; }
+.in .suffix { color: var(--muted); background: var(--bg); margin: -6px -10px -6px 0; padding: 6px 10px; border-left: 1px solid var(--line); white-space: nowrap; font-size: 12px; }
+.hint { font-size: 12px; color: var(--muted); }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.pc { border: 1px solid var(--line); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 2px; font-size: 14px; font-weight: 500; }
+.pc small { font-weight: 400; color: var(--muted); font-size: 12px; }
+.pc.on { border-color: var(--accent); background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
+.radio { display: flex; flex-direction: column; gap: 8px; }
+.ro { display: flex; gap: 10px; align-items: flex-start; border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; font-size: 13px; }
+.ro.on { border-color: var(--accent); background: var(--accent-soft); }
+.dot { width: 14px; height: 14px; border-radius: 50%; border: 1.5px solid var(--shade); flex: none; margin-top: 2px; }
+.ro.on .dot { border-color: var(--accent); box-shadow: inset 0 0 0 3px var(--surface); background: var(--accent); }
+.ro b { font-weight: 500; }
+.ro small { display: block; color: var(--muted); font-size: 12px; }
+.chk { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; }
+.chk .bx { width: 14px; height: 14px; border: 1.5px solid var(--shade); border-radius: 3px; flex: none; margin-top: 3px; }
+.chk.on .bx { background: var(--accent); border-color: var(--accent); }
+.chk small { display: block; color: var(--muted); font-size: 12px; }
+.box { border-radius: 6px; padding: 10px 12px; font-size: 13px; line-height: 1.5; display: flex; flex-direction: column; gap: 6px; }
+.box.info { background: var(--code-bg); }
+.box.warn { background: var(--warn-bg); border: 1px solid var(--warn-line); }
+.cmd { display: flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 6px 8px; font-family: var(--font-mono); font-size: 12px; overflow-x: auto; white-space: nowrap; }
+.cmd .copy { margin-left: auto; font-family: var(--font-body); font-size: 12px; color: var(--accent); }
+.subject { display: flex; flex-direction: column; gap: 4px; }
+.subject .val { font-family: var(--font-mono); font-size: 12px; background: var(--code-bg); border-radius: 4px; padding: 7px 9px; overflow-wrap: anywhere; }
+.subject .val b { color: var(--accent); font-weight: 500; }
+pre { margin: 0; background: var(--code-bg); border-radius: 6px; padding: 12px 14px; overflow-x: auto; font-family: var(--font-mono); font-size: 12px; line-height: 1.55; }
+.k { color: var(--accent); }
+.cm { color: var(--muted); }
+.ok { display: flex; gap: 10px; align-items: center; font-weight: 600; }
+.ok .tick { width: 22px; height: 22px; border-radius: 50%; background: var(--take-bg); color: var(--take); display: grid; place-items: center; font-size: 13px; }
+
+/* variants */
+.variants { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; align-items: start; }
+.vcap { font-size: 13px; color: var(--muted); }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+
+/* table */
+.tbl-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; min-width: 820px; font-size: 14px; }
+th, td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+th { font-size: 12px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); font-weight: 500; background: var(--bg); }
+tr:last-child td { border-bottom: 0; }
+td:first-child { font-weight: 500; width: 20%; }
+.pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 999px; margin-bottom: 4px; }
+.take { color: var(--take); background: var(--take-bg); }
+.adapt { color: var(--adapt); background: var(--adapt-bg); }
+.skip { color: var(--skip); background: var(--skip-bg); }
+
+/* logs */
+.logs { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.log { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.log pre { background: var(--term-bg); color: var(--term-fg); }
+.log pre .e { color: var(--term-err); }
+.log pre .h { color: var(--term-hint); }
+.decisions { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.decision { background: var(--surface); border: 1px solid var(--warn-line); border-radius: 8px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; font-size: 14px; }
+.decision ul { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
+.refs { font-size: 13px; color: var(--muted); }
+.refs ul { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
+.tabs { display: flex; gap: 4px; padding: 3px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; flex-wrap: wrap; align-self: flex-start; }
+.tab { font-size: 13px; padding: 5px 12px; border-radius: 6px; color: var(--muted); }
+.tab.on { background: var(--surface); color: var(--fg); font-weight: 500; box-shadow: 0 1px 2px rgba(20, 22, 40, 0.08); }
+.sec { display: flex; flex-direction: column; gap: 14px; padding-top: 16px; border-top: 1px solid var(--line); }
+.sec-h { font-size: 14px; font-weight: 600; }
+.cmodal { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 2px 12px rgba(20, 22, 40, 0.08); overflow: hidden; }
+.ch { padding: 22px 24px 8px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.ct { font-size: 24px; font-weight: 600; }
+.cx { font-size: 22px; color: var(--muted); line-height: 1; }
+.cbody { display: grid; grid-template-columns: 220px 1fr; gap: 8px; padding: 12px 24px 8px; }
+.crail { display: flex; flex-direction: column; gap: 22px; position: relative; padding-top: 6px; }
+.crail { align-self: start; }
+.cs:not(:last-child)::after { content: ""; position: absolute; left: 13px; top: 28px; bottom: -22px; width: 2px; background: var(--line); }
+.cs.done:not(:last-child)::after { background: var(--take); }
+.cn { position: relative; z-index: 1; }
+.cs { display: grid; grid-template-columns: 28px 1fr; gap: 10px; position: relative; color: var(--muted); }
+.cs b { display: block; font-weight: 500; font-size: 14px; }
+.cs small { font-size: 12px; }
+.cn { width: 28px; height: 28px; border-radius: 50%; border: 1.5px solid var(--line); background: var(--surface); display: grid; place-items: center; font-size: 12px; font-weight: 600; }
+.cs.on { color: var(--fg); }
+.cs.on .cn { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.cs.done { color: var(--fg); }
+.cs.done .cn { background: var(--take); border-color: var(--take); color: var(--on-accent); }
+.ccontent { display: flex; flex-direction: column; gap: 16px; min-width: 0; padding: 4px 0 8px; }
+.cf { padding: 14px 24px 20px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.cf .r { display: flex; gap: 8px; }
+.pcards { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+.pcard { border: 1px solid var(--line); border-radius: 10px; padding: 16px 10px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px; }
+.pcard b { font-weight: 500; font-size: 14px; }
+.pcard small { color: var(--muted); font-size: 12px; }
+.pcard .ico { width: 40px; height: 40px; border-radius: 8px; background: var(--bg); display: grid; place-items: center; color: var(--fg); margin-bottom: 4px; }
+.pcard.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); background: var(--accent-soft); }
+.opt { color: var(--muted); font-weight: 400; }
+.in.ph { color: var(--shade); }
+.box.info { border: 1px solid var(--line); }
+.banner { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font-size: 13px; background: var(--bg); }
+@media (max-width: 640px) {
+  .cbody { grid-template-columns: 1fr; padding: 12px 16px 8px; gap: 16px; }
+  .ch { padding: 16px 16px 4px; }
+  .ct { font-size: 18px; }
+  .crail { flex-direction: row; align-items: center; gap: 0; padding-top: 0; }
+  .cs { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+  .cs:not(:last-child) { flex: 1 1 auto; }
+  .cs:not(:last-child)::after { position: static; flex: 1 1 auto; height: 2px; width: auto; min-width: 12px; margin: 0 8px 0 0; }
+  .cs:not(.on) > div { display: none; }
+  .cs small { display: none; }
+  .cs b { white-space: nowrap; }
+  .row2 { grid-template-columns: 1fr; }
+  .cf { padding: 12px 16px 16px; border-top: 1px solid var(--line); }
+  .in:has(.suffix) { flex-wrap: wrap; padding-bottom: 0; }
+  .in .suffix { flex-basis: 100%; margin: 6px -10px 0; border-left: 0; border-top: 1px solid var(--line); }
+}
+.phone .cbody { grid-template-columns: 1fr; padding: 12px 16px 8px; gap: 16px; }
+.phone .ch { padding: 16px 16px 4px; }
+.phone .ct { font-size: 18px; }
+.phone .crail { flex-direction: row; align-items: center; gap: 0; padding-top: 0; }
+.phone .cs { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+.phone .cs:not(:last-child) { flex: 1 1 auto; }
+.phone .cs:not(:last-child)::after { position: static; flex: 1 1 auto; height: 2px; width: auto; min-width: 12px; margin: 0 8px 0 0; }
+.phone .cs:not(.on) > div { display: none; }
+.phone .cs small { display: none; }
+.phone .cs b { white-space: nowrap; }
+.phone .row2 { grid-template-columns: 1fr; }
+.phone .cf { padding: 12px 16px 16px; border-top: 1px solid var(--line); }
+.phone { width: 375px; max-width: 100%; }
+.phonewrap { display: flex; justify-content: center; padding: 16px 0; }
+.advlink { font-size: 13px; color: var(--accent); font-weight: 500; }
+.advbox { display: flex; flex-direction: column; gap: 14px; padding: 14px; border: 1px solid var(--line); border-radius: 8px; }
+.rules { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; font-size: 16px; }
+table.map { min-width: 560px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+.lbl.ed { display: flex; justify-content: space-between; }
+.lbl.ed .act { color: var(--accent); font-weight: 500; }
+.in.ro { background: var(--bg); color: var(--muted); font-family: ui-monospace, monospace; }
+.in.mono { font-family: ui-monospace, monospace; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: flex-start; }
+.chip { font-family: ui-monospace, monospace; font-size: 12px; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 2px 10px; display: inline-flex; gap: 6px; align-items: center; color: var(--fg); }
+.chip .x { color: var(--muted); }
+.chips .typing { color: var(--shade); font-size: 12px; }
+</style>
+
+<div class="wrap">
+
+<header style="display:flex;flex-direction:column;gap:12px">
+  <div class="eyebrow">BYT-10429 · includes BYT-10349 · Mock-up, 2026-11-09</div>
+  <h1>Create a workload identity</h1>
+  <p class="lead">Five rules shape this flow:</p>
+  <ul class="rules">
+    <li><b>Step by step</b>, like the Claude Console "Connect workload" wizard.</li>
+    <li><b>The most needed fields are shown directly</b>, required ones first.</li>
+    <li><b>No breaking changes.</b> The API, the stored fields and generated workflows stay as they are. Every token that signs in today still signs in.</li>
+    <li><b>One path for every identity.</b> Create and edit read and write the same stored fields; no special handling for identities made by the old form.</li>
+    <li><b>Rare values are prefilled, not hidden.</b> Like Claude's Issuer step, the issuer and the audiences are visible, prefilled fields. A field is not hidden just because it is optional. No step needs an Advanced section now.</li>
+  </ul>
+  <div class="example"><span><b>Example:</b> repository <code>boojack/bb-gitops</code>, Bytebase project <code>gitops-elg0</code>, GitHub Actions</span></div>
+</header>
+
+<section>
+  <div class="eyebrow">Field map</div>
+  <h2>What each step shows</h2>
+  <div class="tbl-wrap"><table class="map">
+    <thead><tr><th>Step</th><th>Shown directly, in this order</th><th>Under Advanced</th></tr></thead>
+    <tbody>
+      <tr><td>1 · Token source</td><td>Provider: GitHub Actions, GitLab CI, or Other OIDC. Then, for the chosen provider: one sentence, Issuer URL and Audiences (prefilled, read-only until Edit)</td><td>None</td></tr>
+      <tr><td>2 · Repositories</td><td>Owner (required), Repository, Owner ID, Subject pattern (read-only until Edit)</td><td>None</td></tr>
+      <tr><td>3 · Account</td><td>Email (required), Role (required), Display name</td><td>None</td></tr>
+      <tr><td>4 · Done</td><td>The created identity's email with Copy; then, below a separator, an optional "Check that it signs in" section with the test workflow file</td><td>None</td></tr>
+    </tbody>
+  </table></div>
+  <p class="note">GitLab CI shows the instance (gitlab.com or a self-managed URL) in step 1, and Group and Project in step 2 (no group ID: GitLab's subject has no place for one). Other OIDC shows Issuer URL, Audiences and JWKS URL (optional) in step 1 and Subject in step 2, because those providers have no fixed values. See Variants below.</p>
+</section>
+
+<section>
+  <div class="eyebrow">Step 1 of 4</div>
+  <div class="cmodal">
+    <div class="ch"><span class="ct">Create workload identity</span><span class="cx">×</span></div>
+    <div class="cbody">
+      <div class="crail">
+        <div class="cs on"><span class="cn">1</span><div><b>Token source</b><small>Select the CI provider</small></div></div>
+        <div class="cs "><span class="cn">2</span><div><b>Repositories</b><small>Match owner and repository</small></div></div>
+        <div class="cs "><span class="cn">3</span><div><b>Account</b><small>Email and role</small></div></div>
+        <div class="cs "><span class="cn">4</span><div><b>Done</b><small>Use it in your workflow</small></div></div>
+      </div>
+      <div class="ccontent">
+        <div class="q"><h3>Where do your CI jobs get their token?</h3><p>Pick the CI provider that signs your jobs' tokens. A workload identity lets those jobs sign in to Bytebase without a stored secret.</p></div>
+        <div class="pcards">
+          <div class="pcard on"><span class="ico"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-3.2 19.5c.5.1.7-.2.7-.5v-1.7c-2.8.6-3.4-1.3-3.4-1.3-.5-1.2-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 .1 1.5 1 1.5 1 .9 1.5 2.4 1.1 2.9.8.1-.7.4-1.1.6-1.3-2.2-.3-4.6-1.1-4.6-5a3.9 3.9 0 0 1 1-2.7c-.1-.3-.4-1.3.1-2.7 0 0 .8-.3 2.8 1a9.6 9.6 0 0 1 5 0c1.9-1.3 2.8-1 2.8-1 .5 1.4.2 2.4.1 2.7a3.9 3.9 0 0 1 1 2.7c0 3.9-2.4 4.7-4.6 5 .4.3.7.9.7 1.9V21c0 .3.2.6.7.5A10 10 0 0 0 12 2z"/></svg></span><b>GitHub Actions</b><small>CI/CD workflows</small></div>
+          <div class="pcard"><span class="ico"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="#e2432a" d="M12 21 3 14.4l1.6-4.9L7 2.4l2.4 7.1h5.2L17 2.4l2.4 7.1 1.6 4.9z"/><path fill="#fc6d26" d="M12 21 9.4 9.5H3.8z"/><path fill="#fca326" d="M12 21l2.6-11.5h5.6z"/></svg></span><b>GitLab CI</b><small>gitlab.com or self-managed</small></div>
+          <div class="pcard"><span class="ico"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-dasharray="3 2.4"/><path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="1.6"/></svg></span><b>Other OIDC</b><small>Bring your own issuer</small></div>
+        </div>
+        <div style="border-top:1px solid var(--line);margin:4px 0"></div>
+        <p style="margin:0;font-size:13px">GitHub signs every Actions job's token with one global issuer. Nothing to configure on the GitHub side.</p>
+        <div>
+          <div class="f"><div class="lbl ed"><span>Issuer URL</span><span class="act">Edit</span></div><div class="in ro">https://token.actions.githubusercontent.com</div><div class="hint">Change it only for GitHub Enterprise Server, GHE.com, or an enterprise custom issuer.</div></div>
+        </div>
+        <div class="f"><div class="lbl ed"><span>Audiences</span><span class="act">Edit</span></div><div class="in ro chips"><span class="chip">bytebase</span></div><div class="hint">The token's audience must be one of these. Workflows from the GitOps page request <code>bytebase</code>.</div></div>
+      </div>
+    </div>
+    <div class="cf"><span></span><div class="r"><span class="btn">Cancel</span><span class="btn pri">Continue</span></div></div>
+  </div>
+</section>
+
+<section>
+  <div class="eyebrow">Step 2 of 4</div>
+  <div class="cmodal">
+    <div class="ch"><span class="ct">Create workload identity</span><span class="cx">×</span></div>
+    <div class="cbody">
+      <div class="crail">
+        <div class="cs done"><span class="cn">✓</span><div><b>Token source</b><small>Select the CI provider</small></div></div>
+        <div class="cs on"><span class="cn">2</span><div><b>Repositories</b><small>Match owner and repository</small></div></div>
+        <div class="cs "><span class="cn">3</span><div><b>Account</b><small>Email and role</small></div></div>
+        <div class="cs "><span class="cn">4</span><div><b>Done</b><small>Use it in your workflow</small></div></div>
+      </div>
+      <div class="ccontent">
+        <div class="q"><h3>Which repositories can sign in?</h3><p>Every job in the matching repositories can sign in. Jobs from other accounts never can.</p></div>
+        <div class="row2">
+          <div class="f"><div class="lbl">Owner</div><div class="in">boojack</div><div class="hint">The organization (or user) that owns the repository.</div></div>
+          <div class="f"><div class="lbl">Repository <span class="opt">(optional)</span></div><div class="in">bb-gitops</div><div class="hint">Leave blank to match any repository of the owner.</div></div>
+        </div>
+        <div class="f"><div class="lbl">Owner ID <span class="opt">(optional)</span></div><div class="in ph">1234567</div><div class="hint">Get it with <code>gh api users/boojack --jq .id</code>.</div></div>
+        <div class="box warn"><span>⚠ This trusts the name boojack alone. If the name is ever freed, someone else can register it and sign in. Add the owner ID to prevent this.</span></div>
+        <div class="f"><div class="lbl" style="display:flex;justify-content:space-between"><span>Subject pattern</span><span style="color:var(--accent);font-weight:500">Edit</span></div><div class="in" style="background:var(--bg);color:var(--muted);font-family:ui-monospace,monospace">repo:boojack/bb-gitops:*</div><div class="hint">Built from the fields above and read-only. Edit it only for a rule the fields can't express, such as one environment.</div></div>
+      </div>
+    </div>
+    <div class="cf"><span class="btn">← Back</span><div class="r"><span class="btn">Cancel</span><span class="btn pri">Continue</span></div></div>
+  </div>
+  <p class="note">The rename warning shows only for GitHub, while Owner ID is empty. GitLab has no ID field and shows no warning. Subject pattern is the one stored rule (no new fields). The form builds it: Owner only gives <code>repo:boojack/*</code>, with Repository <code>repo:boojack/bb-gitops:*</code>, with Owner ID <code>repo:boojack@123/bb-gitops:*</code>. The server accepts both GitHub subject formats for this pattern since <a href="https://github.com/bytebase/bytebase/pull/21931">bytebase#21931</a> (BYT-10349, merged). The GitOps page reads Owner and Repository from the same pattern, so its parser drops the <code>@ID</code> parts; otherwise its repository link would read <code>github.com/boojack@123/bb-gitops</code>.</p>
+</section>
+
+<section>
+  <div class="eyebrow">Step 3 of 4</div>
+  <div class="cmodal">
+    <div class="ch"><span class="ct">Create workload identity</span><span class="cx">×</span></div>
+    <div class="cbody">
+      <div class="crail">
+        <div class="cs done"><span class="cn">✓</span><div><b>Token source</b><small>Select the CI provider</small></div></div>
+        <div class="cs done"><span class="cn">✓</span><div><b>Repositories</b><small>Match owner and repository</small></div></div>
+        <div class="cs on"><span class="cn">3</span><div><b>Account</b><small>Email and role</small></div></div>
+        <div class="cs "><span class="cn">4</span><div><b>Done</b><small>Use it in your workflow</small></div></div>
+      </div>
+      <div class="ccontent">
+        <div class="q"><h3>Who is it in Bytebase?</h3><p>Jobs that sign in act as this account in project gitops-elg0.</p></div>
+        <div class="f"><div class="lbl">Email</div><div class="in">bb-gitops-ci<span class="suffix">@gitops-elg0.workload.bytebase.com</span></div><div class="hint">Your workflow signs in with this email. It cannot be changed later.</div></div>
+        <div class="f"><div class="lbl">Role</div><div class="in">GitOps Service Agent <span>▾</span></div><div class="hint">What the account can do in this project.</div></div>
+        <div class="f"><div class="lbl">Display name <span class="opt">(optional)</span></div><div class="in ph">bb-gitops-ci</div><div class="hint">Shown in member lists. Blank uses the email name.</div></div>
+      </div>
+    </div>
+    <div class="cf"><span class="btn">← Back</span><div class="r"><span class="btn">Cancel</span><span class="btn pri">Create</span></div></div>
+  </div>
+  <p class="note">Nothing is created before Create. Email is prefilled from the repository name, or the owner name when Repository is blank. If that name is taken, the field shows "Already used" before Create. Role is preselected when the flow starts from the GitOps page.</p>
+</section>
+
+<section>
+  <div class="eyebrow">Step 4 of 4</div>
+  <div class="cmodal">
+    <div class="ch"><span class="ct">Create workload identity</span><span class="cx">×</span></div>
+    <div class="cbody">
+      <div class="crail">
+        <div class="cs done"><span class="cn">✓</span><div><b>Token source</b><small>Select the CI provider</small></div></div>
+        <div class="cs done"><span class="cn">✓</span><div><b>Repositories</b><small>Match owner and repository</small></div></div>
+        <div class="cs done"><span class="cn">✓</span><div><b>Account</b><small>Email and role</small></div></div>
+        <div class="cs on"><span class="cn">4</span><div><b>Done</b><small>Use it in your workflow</small></div></div>
+      </div>
+      <div class="ccontent">
+        <div class="q"><h3>Workload identity created</h3><p>Jobs in boojack/bb-gitops can now sign in to project gitops-elg0 as this identity.</p></div>
+<div class="f"><div class="lbl">Email</div><div class="in ro" style="color:var(--fg)">bb-gitops-ci@gitops-elg0.workload.bytebase.com <span class="act" style="color:var(--accent);font-family:var(--font-body,inherit)">Copy</span></div><div class="hint">Set it as <code>BYTEBASE_WORKLOAD_IDENTITY</code> in your workflow. Workflows generated on the GitOps page already use it.</div></div>
+<div style="border-top:1px solid var(--line);margin:8px 0 0"></div>
+<div class="q"><h3 style="font-size:15px">Check that it signs in <span class="opt">(optional)</span></h3><p>Run this workflow once to confirm the identity works before you rely on it.</p></div>
+<div class="tabs"><span class="tab on">.github/workflows/bytebase-wif-test.yml</span></div>
+<pre><span class="k">name</span>: bytebase-wif-test
+<span class="k">on</span>:
+  <span class="k">push</span>:
+    <span class="k">paths</span>:
+      - .github/workflows/bytebase-wif-test.yml
+<span class="k">permissions</span>:
+  <span class="k">id-token</span>: write
+  <span class="k">contents</span>: read
+<span class="k">jobs</span>:
+  <span class="k">sign-in</span>:
+    <span class="k">runs-on</span>: ubuntu-latest
+    <span class="k">steps</span>:
+      - <span class="k">name</span>: Fetch GitHub OIDC token
+        <span class="k">run</span>: |
+          OIDC_TOKEN=$(curl -sS --fail -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&amp;audience=bytebase" | jq -r .value)
+          echo "::add-mask::$OIDC_TOKEN"
+          echo "OIDC_TOKEN=$OIDC_TOKEN" &gt;&gt; $GITHUB_ENV
+      - <span class="k">name</span>: Exchange for a Bytebase access token
+        <span class="k">run</span>: |
+          RESPONSE=$(curl -sS --fail-with-body https://cloud.bytebase.com/v1/auth:exchangeToken \
+            -H "Content-Type: application/json" \
+            -d '{"token":"'"$OIDC_TOKEN"'","email":"bb-gitops-ci@gitops-elg0.workload.bytebase.com"}') \
+            || { echo "Sign-in refused: $RESPONSE"; exit 1; }
+          echo "$RESPONSE" | jq '.accessToken = "&lt;redacted&gt;"'</pre>
+<div class="hint">Commit this file on any branch of boojack/bb-gitops and push. It runs when this file changes, not on every push. A green job means the identity signs in; a red job prints the reason Bytebase refused the token.</div>
+      </div>
+    </div>
+    <div class="cf"><span></span><div class="r"><span class="btn pri">Done</span></div></div>
+  </div>
+  <p class="note">Everything is created when you leave step 3. Step 4 is the done screen: the one value the workflow needs, plus an optional test. Compared with Claude's Test step, the test is optional and sits in its own section, runs only when its own file is pushed, on any branch, so it needs no PR to a protected main, the dialog does not listen for the result (the job log shows it), and there is no setup-guide link. The URL in the snippet is the workspace's External URL; when it is not set, the section asks for it instead of showing a snippet. When the flow starts from the GitOps page, the text says the generated workflow already signs in, so running it is the test.</p>
+  <p class="note">Editing reuses steps 1 to 3 with a banner, as Claude does. The provider is locked when editing, like the email, so a stored pattern is never rebuilt in another format. When no provider is stored, the provider cards start empty and required, as on create, because the server refuses a save without one. Every save sends back the stored JWKS URL unchanged, also for GitHub and GitLab where the field is not shown. The steps load what is stored: the issuer, the audiences, and the subject pattern, with Owner, Owner ID and Repository read from it. There is no separate path for identities made by the old form.</p>
+</section>
+
+<section>
+  <div class="eyebrow">Phone, 375px wide</div>
+  <div class="phonewrap"><div class="cmodal phone">
+    <div class="ch"><span class="ct">Create workload identity</span><span class="cx">×</span></div>
+    <div class="cbody">
+      <div class="crail">
+        <div class="cs done"><span class="cn">✓</span><div><b>Token source</b><small>Select the CI provider</small></div></div>
+        <div class="cs on"><span class="cn">2</span><div><b>Repositories</b><small>Match owner and repository</small></div></div>
+        <div class="cs "><span class="cn">3</span><div><b>Account</b><small>Email and role</small></div></div>
+        <div class="cs "><span class="cn">4</span><div><b>Done</b><small>Use it in your workflow</small></div></div>
+      </div>
+      <div class="ccontent">
+        <div class="q"><h3>Which repositories can sign in?</h3><p>Every job in the matching repositories can sign in. Jobs from other accounts never can.</p></div>
+        <div class="row2">
+          <div class="f"><div class="lbl">Owner</div><div class="in">boojack</div><div class="hint">The organization (or user) that owns the repository.</div></div>
+          <div class="f"><div class="lbl">Repository <span class="opt">(optional)</span></div><div class="in">bb-gitops</div><div class="hint">Leave blank to match any repository of the owner.</div></div>
+        </div>
+        <div class="f"><div class="lbl">Owner ID <span class="opt">(optional)</span></div><div class="in ph">1234567</div><div class="hint">Get it with <code>gh api users/boojack --jq .id</code>.</div></div>
+      </div>
+    </div>
+    <div class="cf"><span class="btn">← Back</span><div class="r"><span class="btn">Cancel</span><span class="btn pri">Continue</span></div></div>
+  </div></div>
+  <p class="note">Below 640px the step rail moves to the top as one row: numbered circles joined by lines, with only the current step's title shown and no descriptions. The shared step indicator already does this with its one-row option. Fields go to one column. The title, the step row and the buttons stay in place; only the step body scrolls. Code blocks in step 4 scroll sideways. The email suffix moves under the name, so the name keeps the full width. The dialog sets its own phone width (full width minus 16px each side), because the shared dialog is <code>100vw − 8rem</code> wide, which leaves 247px on a 375px phone.</p>
+</section>
+
+<section>
+  <div class="eyebrow">Variants</div>
+  <h2>Cases the four steps must also handle</h2>
+  <div class="variants">
+    <div class="panel">
+      <b>Workspace-level identity (Settings &gt; Members)</b>
+      <div class="f"><div class="lbl">Email</div><div class="in">bb-gitops-ci<span class="suffix">@workload.bytebase.com</span></div></div>
+      <div class="f"><div class="lbl">Role</div><div class="in ph">Select a workspace role <span>▾</span></div><div class="hint">What the account can do in this workspace.</div></div>
+      <div class="vcap">No project in the email. Workspace roles only, nothing preselected, because GitOps Service Agent is a project role.</div>
+    </div>
+    <div class="panel">
+      <b>User can create identities but cannot grant roles</b>
+      <div class="f"><div class="lbl">Role</div><div class="in ph">GitOps Service Agent <span>▾</span></div></div>
+      <div class="box warn"><span>⚠ You can't grant roles in this project. The identity is created without a role and can't do anything until a project owner grants one.</span></div>
+      <div class="vcap">Creating needs <code>bb.workloadIdentities.create</code>; granting a role needs <code>bb.projects.setIamPolicy</code>. Create stays allowed; the field is disabled with this warning.</div>
+    </div>
+    <div class="panel">
+      <b>Step 1 after clicking Edit</b>
+      <div class="f"><div class="lbl ed"><span>Issuer URL</span><span class="act">Reset</span></div><div class="in mono">https://github.example.com/_services/token</div></div>
+      <div class="f"><div class="lbl ed"><span>Audiences</span><span class="act">Reset</span></div><div class="in chips"><span class="chip">bytebase <span class="x">×</span></span><span class="chip">https://github.com/boojack <span class="x">×</span></span><span class="typing">Type and press Enter</span></div><div class="hint">The token's audience must be one of these.</div></div>
+      <div class="vcap">Each field unlocks on its own. Audiences becomes a tag input: Enter adds a value, × removes one. At least one value is required. Reset puts the default back.</div>
+    </div>
+    <div class="panel">
+      <b>Step 2 after clicking Edit</b>
+      <div class="f"><div class="lbl" style="display:flex;justify-content:space-between"><span>Subject pattern</span><span style="color:var(--accent);font-weight:500">Reset</span></div><div class="in" style="font-family:ui-monospace,monospace">repo:boojack/bb-gitops:environment:prod</div><div class="hint">Owner, Owner ID and Repository above update from what you type. Changing a field later replaces only its own part of the pattern. Reset builds the pattern from the fields again.</div></div>
+      <div class="box warn"><span>⚠ Only jobs with <code>environment: prod</code> can sign in. The create-rollout and SQL review jobs have no environment and will fail.</span></div>
+      <div class="vcap">If the pattern can't be read back (for example it doesn't start with <code>repo:OWNER/</code>), the fields above are disabled and the server falls back to a plain match on <code>sub</code>.</div>
+    </div>
+    <div class="panel">
+      <b>GitLab CI, step 4</b>
+      <div class="f"><div class="lbl">Email</div><div class="in ro" style="color:var(--fg)">bb-gitops-ci@gitops-elg0.workload.bytebase.com <span style="color:var(--accent)">Copy</span></div></div>
+      <div class="q"><h3 style="font-size:15px">Check that it signs in <span class="opt">(optional)</span></h3></div>
+<pre><span class="k">bytebase-wif-test</span>:
+  <span class="k">image</span>: alpine:3.20
+  <span class="k">when</span>: manual
+  <span class="k">id_tokens</span>:
+    <span class="k">GITLAB_OIDC_TOKEN</span>:
+      <span class="k">aud</span>: bytebase
+  <span class="k">script</span>:
+    - apk add --no-cache curl jq
+    - |
+      RESPONSE=$(curl -sS --fail-with-body https://cloud.bytebase.com/v1/auth:exchangeToken \
+        -H "Content-Type: application/json" \
+        -d "{\"token\":\"$GITLAB_OIDC_TOKEN\",\"email\":\"bb-gitops-ci@gitops-elg0.workload.bytebase.com\"}") \
+        || { echo "Sign-in refused: $RESPONSE"; exit 1; }
+    - echo "$RESPONSE" | jq '.accessToken = "&lt;redacted&gt;"'</pre>
+      <div class="vcap">Add this job to <code>.gitlab-ci.yml</code> on any branch and press Run on it in the pipeline. The audience is set on <code>id_tokens</code>; there is no <code>permissions</code> block.</div>
+    </div>
+    <div class="panel">
+      <b>Other OIDC, steps 1 and 2</b>
+      <div class="f"><div class="lbl">Issuer URL</div><div class="in ph">https://issuer.example.com</div></div>
+      <div class="f"><div class="lbl">Audiences</div><div class="in chips"><span class="chip">bytebase <span class="x">×</span></span><span class="typing">Type and press Enter</span></div><div class="hint">The token's audience must be one of these.</div></div>
+      <div class="f"><div class="lbl">JWKS URL <span class="opt">(optional)</span></div><div class="in ph">https://issuer.example.com/keys</div><div class="hint">Where Bytebase downloads the issuer's public keys. Leave blank if the issuer publishes <code>/.well-known/openid-configuration</code>.</div></div>
+      <div class="q"><h3>Which tokens can sign in?</h3></div>
+      <div class="f"><div class="lbl">Subject pattern</div><div class="in ph">system:serviceaccount:ci:deployer</div><div class="hint">Must equal the token's <code>sub</code>. End with <code>*</code> to match a prefix.</div></div>
+      <div class="vcap">Issuer URL, Audiences and JWKS URL sit in step 1, editable from the start because Other OIDC has no default issuer. JWKS URL is the only optional field there, so it comes last. GitHub and GitLab publish discovery documents, so they never show it. Step 2 is renamed "Subject" in the left rail.</div>
+    </div>
+  </div>
+</section>
+
+<section class="refs">
+  <div class="eyebrow">References</div>
+  <ul>
+    <li><a href="https://linear.app/bytebase/issue/BYT-10429">BYT-10429</a> Redesign the Workload Identity creation flow; <a href="https://linear.app/bytebase/issue/BYT-10349">BYT-10349</a> immutable GitHub subject</li>
+    <li><a href="https://platform.claude.com/docs/en/manage-claude/workload-identity-federation">Claude: Workload Identity Federation</a>, plus Connect workload screenshots</li>
+    <li>Earlier versions of this page, with the pros and cons table and failure messages, are in its version history.</li>
+  </ul>
+</section>
+
+</div>
