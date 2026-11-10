@@ -14,7 +14,7 @@ every identity that signs in today keeps signing in.** Frontend only: no proto, 
 migration change.
 
 The step layout follows the Claude Platform's "Connect workload" wizard (left rail, one question
-and one sentence per step, choice cards). The mock-up (v39, with desktop, phone and variant
+and one sentence per step, choice cards). The mock-up (v40, with desktop, phone and variant
 screens) is kept outside the repo.
 
 ## Problem
@@ -153,7 +153,8 @@ acme-corp/deploy can now sign in to project acme-deploy as this identity." The e
 a Copy button and the hint "Set it as `BYTEBASE_WORKLOAD_IDENTITY` in your workflow. Workflows
 generated on the GitOps page already use it."
 
-Below a separator, the section "Check that it signs in (optional)" shows one complete test file.
+Below a separator, the section "Check that it signs in (optional)" shows one complete test file,
+with a Copy button at the top right of the code block.
 For GitHub, `.github/workflows/bytebase-wif-test.yml`:
 
 ```yaml

@@ -162,6 +162,10 @@ td:first-child { font-weight: 500; width: 20%; }
 .cmodal .cbody { flex: 1 1 auto; min-height: 0; }
 .cmodal .ccontent { overflow-y: auto; min-height: 0; padding: 4px 4px 8px; margin: 0 -4px; }
 .cmodal .cf { margin-top: auto; }
+.cmodal .ccontent > * { flex-shrink: 0; }
+.codewrap { position: relative; }
+.codewrap .ccopy { position: absolute; top: 8px; right: 8px; font-size: 13px; color: var(--accent); background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 2px 8px; line-height: 1.4; }
+.codewrap pre { padding-right: 72px; }
 .ch { padding: 22px 24px 8px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .ct { font-size: 24px; font-weight: 600; }
 .cx { font-size: 22px; color: var(--muted); line-height: 1; }
@@ -241,7 +245,7 @@ table.map { min-width: 560px; }
 <div class="wrap">
 
 <header style="display:flex;flex-direction:column;gap:12px">
-  <div class="eyebrow">BYT-10429 · includes BYT-10349 · Mock-up v39, 2026-11-10</div>
+  <div class="eyebrow">BYT-10429 · includes BYT-10349 · Mock-up v40, 2026-11-10</div>
   <h1>Create a workload identity</h1>
   <p class="lead">Five rules shape this flow:</p>
   <ul class="rules">
@@ -367,7 +371,7 @@ table.map { min-width: 560px; }
 <div style="border-top:1px solid var(--line);margin:8px 0 0"></div>
 <div class="q"><h3 style="font-size:15px">Check that it signs in <span class="opt">(optional)</span></h3><p>Run this workflow once to confirm the identity works before you rely on it.</p></div>
 <div class="tabs"><span class="tab on">.github/workflows/bytebase-wif-test.yml</span></div>
-<pre><span class="k">name</span>: bytebase-wif-test
+<div class="codewrap"><span class="ccopy">Copy</span><pre><span class="k">name</span>: bytebase-wif-test
 <span class="k">on</span>:
   <span class="k">push</span>:
     <span class="k">paths</span>:
@@ -391,7 +395,7 @@ table.map { min-width: 560px; }
             -H "Content-Type: application/json" \
             -d '{"token":"'"$OIDC_TOKEN"'","email":"bb-gitops-ci@gitops-elg0.workload.bytebase.com"}') \
             || { echo "Sign-in refused: $RESPONSE"; exit 1; }
-          echo "$RESPONSE" | jq '.accessToken = "&lt;redacted&gt;"'</pre>
+          echo "$RESPONSE" | jq '.accessToken = "&lt;redacted&gt;"'</pre></div>
 <div class="hint">Commit this file on any branch of boojack/bb-gitops and push. It runs when this file changes, not on every push. A green job means the identity signs in; a red job prints the reason Bytebase refused the token.</div>
       </div>
     </div>
@@ -464,7 +468,7 @@ table.map { min-width: 560px; }
       <b>GitLab CI, step 4</b>
       <div class="f"><div class="lbl">Email</div><div class="in ro" style="color:var(--fg)">bb-gitops-ci@gitops-elg0.workload.bytebase.com <span style="color:var(--accent)">Copy</span></div></div>
       <div class="q"><h3 style="font-size:15px">Check that it signs in <span class="opt">(optional)</span></h3></div>
-<pre><span class="k">bytebase-wif-test</span>:
+<div class="codewrap"><span class="ccopy">Copy</span><pre><span class="k">bytebase-wif-test</span>:
   <span class="k">image</span>: alpine:3.20
   <span class="k">when</span>: manual
   <span class="k">id_tokens</span>:
@@ -477,7 +481,7 @@ table.map { min-width: 560px; }
         -H "Content-Type: application/json" \
         -d "{\"token\":\"$GITLAB_OIDC_TOKEN\",\"email\":\"bb-gitops-ci@gitops-elg0.workload.bytebase.com\"}") \
         || { echo "Sign-in refused: $RESPONSE"; exit 1; }
-    - echo "$RESPONSE" | jq '.accessToken = "&lt;redacted&gt;"'</pre>
+    - echo "$RESPONSE" | jq '.accessToken = "&lt;redacted&gt;"'</pre></div>
       <div class="vcap">Add this job to <code>.gitlab-ci.yml</code> on any branch and press Run on it in the pipeline. The audience is set on <code>id_tokens</code>; there is no <code>permissions</code> block.</div>
     </div>
     <div class="panel">
