@@ -14,7 +14,7 @@ every identity that signs in today keeps signing in.** Frontend only: no proto, 
 migration change.
 
 The step layout follows the Claude Platform's "Connect workload" wizard (left rail, one question
-and one sentence per step, choice cards). The mock-up (v43, with desktop, phone and variant
+and one sentence per step, choice cards). The mock-up (v44, with desktop, phone and variant
 screens) is kept outside the repo.
 
 ## Problem
@@ -85,7 +85,7 @@ Changing the provider resets the issuer, audiences, JWKS URL and subject pattern
 fields are a view of the one stored pattern.
 
 - **GitHub.** Owner (required), Repository (optional, blank means any repository of the owner),
-  Owner ID (optional, digits only). Owner ID hint: "Get it with `gh api users/<owner> --jq .id`."
+  Owner ID (optional, digits only). Owner ID hint: "Get it with `gh api users/<owner> --jq .id`. It never changes, even when the account is renamed."
 - **GitLab.** Group (required), Project (optional). There is no group ID: GitLab's subject has no
   place for one.
 - **Other OIDC.** The step is titled "Which tokens can sign in?" and has only Subject pattern
@@ -105,9 +105,7 @@ It follows the grammar the server parses in `backend/plugin/idp/wif/github.go`
 (`repo:OWNER[@OWNER_ID]/*` or `repo:OWNER[@OWNER_ID]/REPO[@REPO_ID]:REST`). Since #21931, every
 GitHub pattern in the table matches tokens in both subject formats.
 
-Below the fields, Subject pattern is shown read-only with an Edit link and the hint "Built from the
-fields above and read-only. Edit it only for a rule the fields can't express, such as one
-environment." After Edit:
+Below the fields, Subject pattern is shown read-only with an Edit link and the hint "Built from the fields above. Edit it only for a rule the fields can't express." After Edit:
 
 - Typing in the pattern updates the fields from it.
 - Changing a field afterwards replaces only that field's part and keeps the rest of the pattern
@@ -121,10 +119,11 @@ environment." After Edit:
 For GitHub, a box below Owner ID explains the owner ID. It is always shown, from the moment the
 step opens, with the same text, so typing Owner or Owner ID never changes the step's height. While
 Owner ID is empty it is a warning; once an ID is typed, the same box turns neutral (info). Title:
-"The owner ID protects this rule from name reuse". Body: "Without it, the rule trusts the owner name alone. If that account is renamed or deleted, GitHub frees the name and anyone can register it. Their workflows would then match this rule and sign in to Bytebase as this identity. The ID stays the same when the account is renamed." The box ends
-with the link "GitHub changelog: immutable subject claims", which opens GitHub's announcement in a
-new tab: https://github.blog/changelog/2026-04-23-immutable-subject-claims-for-github-actions-oidc-tokens/. It is the one external link in the dialog, because the
-risk is GitHub's behavior and GitHub's post explains it.
+"The owner ID protects this rule from name reuse". Body: "Without it, the rule trusts the name alone. If the account is renamed or deleted, anyone can register the name and sign in as this identity." The body ends
+with the inline link "GitHub changelog", which opens GitHub's announcement in a new tab:
+https://github.blog/changelog/2026-04-23-immutable-subject-claims-for-github-actions-oidc-tokens/. It is the one external link in the dialog, because the risk is
+GitHub's behavior and GitHub's post explains it. The step 2 wording is kept short so that the step
+fits the fixed height without scrolling, also with the edit banner.
 There is no field for the branch, tag, event or environment. Today's Branch and GitLab
 "Allowed branches/tags" fields are dropped; a pattern edit still expresses them (D9).
 
@@ -203,7 +202,8 @@ Rejected: a live "waiting for the first sign-in" status in the dialog, which nee
 state; the job log already shows the result and the refusal reason. Also rejected: an "Add to an
 existing workflow" tab, which repeated the generated GitOps workflow.
 
-**D6 · Edit reuses steps 1 to 3.** A banner says the user is editing an existing identity. Every
+**D6 · Edit reuses steps 1 to 3.** A one-line banner says the user is editing an existing identity:
+"Editing deploy-ci@acme-deploy.workload.bytebase.com. Changes apply from its next sign-in." Every
 step is reachable from the rail. The steps load what is stored: the issuer, the audiences, the JWKS
 URL, and the pattern, with the fields read from it. There is no separate path for identities made
 by the old form.
