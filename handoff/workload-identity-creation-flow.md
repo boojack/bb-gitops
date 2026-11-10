@@ -14,7 +14,7 @@ every identity that signs in today keeps signing in.** Frontend only: no proto, 
 migration change.
 
 The step layout follows the Claude Platform's "Connect workload" wizard (left rail, one question
-and one sentence per step, choice cards). The mock-up (v41, with desktop, phone and variant
+and one sentence per step, choice cards). The mock-up (v42, with desktop, phone and variant
 screens) is kept outside the repo.
 
 ## Problem
@@ -123,9 +123,9 @@ While Owner ID is empty, GitHub shows a warning with a title and a body. Title: 
 the name acme-corp alone". Body: "If the acme-corp account is renamed or deleted, GitHub frees the
 name and anyone can register it. Workflows in their repositories would then match this rule and
 sign in to Bytebase as this identity. Add the owner ID to tie the rule to this account." The
-warning ends with the link "GitHub docs: immutable subject claims", which opens
-https://docs.github.com/en/actions/reference/security/oidc#immutable-subject-claims in a new tab. It is the one external link in the dialog, because the
-risk is GitHub's behavior and GitHub's page explains it.
+warning ends with the link "GitHub changelog: immutable subject claims", which opens GitHub's
+announcement in a new tab: https://github.blog/changelog/2026-04-23-immutable-subject-claims-for-github-actions-oidc-tokens/. It is the one external link in the
+dialog, because the risk is GitHub's behavior and GitHub's post explains it.
 There is no field for the branch, tag, event or environment. Today's Branch and GitLab
 "Allowed branches/tags" fields are dropped; a pattern edit still expresses them (D9).
 
