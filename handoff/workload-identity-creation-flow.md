@@ -14,7 +14,7 @@ every identity that signs in today keeps signing in.** Frontend only: no proto, 
 migration change.
 
 The step layout follows the Claude Platform's "Connect workload" wizard (left rail, one question
-and one sentence per step, choice cards). The mock-up (v42, with desktop, phone and variant
+and one sentence per step, choice cards). The mock-up (v43, with desktop, phone and variant
 screens) is kept outside the repo.
 
 ## Problem
@@ -85,8 +85,7 @@ Changing the provider resets the issuer, audiences, JWKS URL and subject pattern
 fields are a view of the one stored pattern.
 
 - **GitHub.** Owner (required), Repository (optional, blank means any repository of the owner),
-  Owner ID (optional, digits only). Owner ID hint: "Get it with `gh api users/<owner> --jq .id`.
-  The ID stays the same when the account is renamed."
+  Owner ID (optional, digits only). Owner ID hint: "Get it with `gh api users/<owner> --jq .id`."
 - **GitLab.** Group (required), Project (optional). There is no group ID: GitLab's subject has no
   place for one.
 - **Other OIDC.** The step is titled "Which tokens can sign in?" and has only Subject pattern
@@ -119,13 +118,13 @@ environment." After Edit:
 - A pattern that names one environment shows a warning: only jobs with that `environment:` can
   sign in, and jobs without one, such as the GitOps review job, will fail.
 
-While Owner ID is empty, GitHub shows a warning with a title and a body. Title: "This rule trusts
-the name acme-corp alone". Body: "If the acme-corp account is renamed or deleted, GitHub frees the
-name and anyone can register it. Workflows in their repositories would then match this rule and
-sign in to Bytebase as this identity. Add the owner ID to tie the rule to this account." The
-warning ends with the link "GitHub changelog: immutable subject claims", which opens GitHub's
-announcement in a new tab: https://github.blog/changelog/2026-04-23-immutable-subject-claims-for-github-actions-oidc-tokens/. It is the one external link in the
-dialog, because the risk is GitHub's behavior and GitHub's post explains it.
+For GitHub, a box below Owner ID explains the owner ID. It is always shown, from the moment the
+step opens, with the same text, so typing Owner or Owner ID never changes the step's height. While
+Owner ID is empty it is a warning; once an ID is typed, the same box turns neutral (info). Title:
+"The owner ID protects this rule from name reuse". Body: "Without it, the rule trusts the owner name alone. If that account is renamed or deleted, GitHub frees the name and anyone can register it. Their workflows would then match this rule and sign in to Bytebase as this identity. The ID stays the same when the account is renamed." The box ends
+with the link "GitHub changelog: immutable subject claims", which opens GitHub's announcement in a
+new tab: https://github.blog/changelog/2026-04-23-immutable-subject-claims-for-github-actions-oidc-tokens/. It is the one external link in the dialog, because the
+risk is GitHub's behavior and GitHub's post explains it.
 There is no field for the branch, tag, event or environment. Today's Branch and GitLab
 "Allowed branches/tags" fields are dropped; a pattern edit still expresses them (D9).
 
