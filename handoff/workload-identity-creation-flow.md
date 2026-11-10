@@ -14,7 +14,7 @@ every identity that signs in today keeps signing in.** Frontend only: no proto, 
 migration change.
 
 The step layout follows the Claude Platform's "Connect workload" wizard (left rail, one question
-and one sentence per step, choice cards). The mock-up (v38, with desktop, phone and variant
+and one sentence per step, choice cards). The mock-up (v39, with desktop, phone and variant
 screens) is kept outside the repo.
 
 ## Problem
@@ -54,7 +54,10 @@ rail shows each step's title and one-line description ("Select the CI provider",
 repository", "Email and role", "Use it in your workflow"). Finished steps turn green and the line
 between them follows. The footer is fixed: Back (secondary, from step 2), Cancel, and
 Continue / Create (primary). Each step is validated before Continue, with errors beside the
-fields, and Back keeps what was entered. This is a `Dialog`, not the wide sheet that the UX
+fields, and Back keeps what was entered. The dialog has a fixed height: 680px, or the window
+height minus 64px when the window is smaller. The buttons stay in the same place on every step; a
+short step leaves space above them, and a long one scrolls inside the step body. The scroll area
+leaves room for focus rings, so no field border is cut. This is a `Dialog`, not the wide sheet that the UX
 contract suggests for short wizards. The rail with descriptions and the side-by-side layout follow
 the Claude Platform wizard that the flow is modelled on, and a side sheet leaves the form too
 little width beside the rail. All other wizard rules in the contract apply. Rejected: one page with
@@ -82,7 +85,8 @@ Changing the provider resets the issuer, audiences, JWKS URL and subject pattern
 fields are a view of the one stored pattern.
 
 - **GitHub.** Owner (required), Repository (optional, blank means any repository of the owner),
-  Owner ID (optional, digits only). Owner ID hint: "Get it with `gh api users/<owner> --jq .id`."
+  Owner ID (optional, digits only). Owner ID hint: "Get it with `gh api users/<owner> --jq .id`.
+  The ID stays the same when the account is renamed."
 - **GitLab.** Group (required), Project (optional). There is no group ID: GitLab's subject has no
   place for one.
 - **Other OIDC.** The step is titled "Which tokens can sign in?" and has only Subject pattern
@@ -115,8 +119,10 @@ environment." After Edit:
 - A pattern that names one environment shows a warning: only jobs with that `environment:` can
   sign in, and jobs without one, such as the GitOps review job, will fail.
 
-While Owner ID is empty, GitHub shows a warning: "This trusts the name acme-corp alone. If the name
-is ever freed, someone else can register it and sign in. Add the owner ID to prevent this."
+While Owner ID is empty, GitHub shows a warning with a title and a body. Title: "This rule trusts
+the name acme-corp alone". Body: "If the acme-corp account is renamed or deleted, GitHub frees the
+name and anyone can register it. Workflows in their repositories would then match this rule and
+sign in to Bytebase as this identity. Add the owner ID to tie the rule to this account."
 There is no field for the branch, tag, event or environment. Today's Branch and GitLab
 "Allowed branches/tags" fields are dropped; a pattern edit still expresses them (D9).
 
@@ -218,7 +224,8 @@ message beside it. Today the sheet opens Advanced instead.
 - The rail becomes one row at the top: numbered circles joined by lines, with only the current
   step's title and no descriptions. This is the shared `StepIndicator` in its `fitOneRow` mode.
 - Fields go to one column.
-- The title, the step row and the footer stay in place; only the step body scrolls.
+- The dialog fills the screen height minus 16px top and bottom. The title, the step row and the
+  footer stay in place; only the step body scrolls.
 - The email suffix moves under the name.
 - Code blocks scroll sideways.
 - The dialog sets its own width (full width minus 16px each side), because the shared
