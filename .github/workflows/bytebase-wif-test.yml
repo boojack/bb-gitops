@@ -3,6 +3,7 @@ on:
   push:
     paths:
       - .github/workflows/bytebase-wif-test.yml
+  workflow_dispatch:
 permissions:
   id-token: write
   contents: read
