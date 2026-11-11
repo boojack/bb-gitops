@@ -1,0 +1,471 @@
+From d01289798aa5456a4ecc68aac5c3497761853a26 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Wed, 11 Nov 2026 09:38:05 +0000
+Subject: [PATCH 2/5] feat(gitops): build the workflow files from the picked
+ databases (BYT-10423)
+
+generateWorkflowFiles returns every file for the identity's git provider:
+one deploy job per environment in deploy order, the default branch read
+at run time, and the migration folder as the trigger and file pattern.
+The old generators stay until the page moves to the new one.
+---
+ .../routes/project/gitopsWorkflowYaml.test.ts | 181 +++++++++++++
+ .../src/routes/project/gitopsWorkflowYaml.ts  | 243 ++++++++++++++++++
+ 2 files changed, 424 insertions(+)
+
+diff --git a/frontend/src/routes/project/gitopsWorkflowYaml.test.ts b/frontend/src/routes/project/gitopsWorkflowYaml.test.ts
+index 095cbd4..1f9156f 100644
+--- a/frontend/src/routes/project/gitopsWorkflowYaml.test.ts
++++ b/frontend/src/routes/project/gitopsWorkflowYaml.test.ts
+@@ -1,9 +1,15 @@
++import { load } from "js-yaml";
+ import { describe, expect, test } from "vitest";
+ import {
+   bytebaseActionImage,
++  EXTERNAL_URL_PLACEHOLDER,
++  GITLAB_INCLUDE,
+   generateGithubReleaseYaml,
+   generateGithubSqlReviewYaml,
+   generateGitlabCiYaml,
++  generateWorkflowFiles,
++  isValidMigrationFolder,
++  type WorkflowParams,
+   type YamlParams,
+ } from "./gitopsWorkflowYaml";
+ 
+@@ -76,3 +82,178 @@ describe("generated workflows", () => {
+     );
+   });
+ });
++
++const workflow: WorkflowParams = {
++  provider: "github",
++  bytebaseUrl: "https://bytebase.example.com",
++  actionImage: "bytebase/bytebase-action:3.14.0",
++  workloadIdentityEmail: "deploy-ci@shop.workload.bytebase.com",
++  projectId: "shop",
++  targets: [
++    "instances/pg-test/databases/shop_test",
++    "instances/pg-prod/databases/shop_prod",
++  ],
++  environments: ["test", "staging", "prod"],
++  folder: "migrations",
++};
++
++type Job = {
++  if?: string;
++  needs?: string | string[];
++  environment?: string;
++  image?: string;
++  stage?: string;
++  rules?: { if: string; changes: string[] }[];
++  container?: { image: string };
++  steps?: { run?: string }[];
++  script?: string[];
++};
++type Workflow = {
++  on: Record<string, { paths: string[] }>;
++  env?: Record<string, string>;
++  variables?: Record<string, string>;
++  jobs: Record<string, Job>;
++};
++
++const parse = (content: string) => load(content) as Workflow;
++// GitLab jobs are top-level keys next to `variables`.
++const parsedGitlabJobs = (content: string) => {
++  const { variables: _, ...jobs } = load(content) as Record<string, Job>;
++  return jobs;
++};
++
++describe("generateWorkflowFiles", () => {
++  test("GitHub gives a review file and a deploy file", () => {
++    const files = generateWorkflowFiles(workflow);
++    expect(files.map((f) => f.path)).toEqual([
++      ".github/workflows/bytebase-review.yml",
++      ".github/workflows/bytebase-deploy.yml",
++    ]);
++    for (const file of files) {
++      expect(() => parse(file.content)).not.toThrow();
++      expect(file.content).toContain("https://bytebase.example.com");
++      expect(file.content).toContain("deploy-ci@shop.workload.bytebase.com");
++      expect(file.content).toContain("bytebase/bytebase-action:3.14.0");
++      expect(file.content).not.toContain("secrets.BYTEBASE");
++    }
++  });
++
++  test("GitHub review runs on pull requests into the default branch", () => {
++    const [review] = generateWorkflowFiles(workflow);
++    const parsed = parse(review.content);
++    expect(parsed.on.pull_request.paths).toEqual(["migrations/*.sql"]);
++    expect(parsed.jobs["sql-review"].if).toBe(
++      "github.base_ref == github.event.repository.default_branch"
++    );
++    const run = parsed.jobs["sql-review"].steps?.at(-1)?.run ?? "";
++    expect(run).toContain("--project=projects/shop");
++    expect(run).toContain(
++      "--targets=instances/pg-test/databases/shop_test,instances/pg-prod/databases/shop_prod"
++    );
++    expect(run).toContain("--file-pattern=migrations/*.sql");
++  });
++
++  test("GitHub deploy has one job per environment, in deploy order", () => {
++    const [, deploy] = generateWorkflowFiles(workflow);
++    const parsed = parse(deploy.content);
++    expect(Object.keys(parsed.jobs)).toEqual([
++      "create-rollout",
++      "deploy-to-test",
++      "deploy-to-staging",
++      "deploy-to-prod",
++    ]);
++    expect(parsed.jobs["create-rollout"].if).toBe(
++      "github.ref_name == github.event.repository.default_branch"
++    );
++    expect(parsed.jobs["deploy-to-test"].needs).toEqual(["create-rollout"]);
++    expect(parsed.jobs["deploy-to-staging"].needs).toEqual([
++      "create-rollout",
++      "deploy-to-test",
++    ]);
++    expect(parsed.jobs["deploy-to-prod"].needs).toEqual([
++      "create-rollout",
++      "deploy-to-staging",
++    ]);
++    expect(parsed.jobs["deploy-to-prod"].environment).toBe("prod");
++    expect(deploy.content).toContain("--target-stage=environments/staging");
++  });
++
++  test("a database group is one target", () => {
++    const [review] = generateWorkflowFiles({
++      ...workflow,
++      targets: ["projects/shop/databaseGroups/all-shops"],
++    });
++    expect(review.content).toContain(
++      "--targets=projects/shop/databaseGroups/all-shops \\"
++    );
++  });
++
++  test("GitLab gives one file with every job", () => {
++    const files = generateWorkflowFiles({ ...workflow, provider: "gitlab" });
++    expect(files.map((f) => f.path)).toEqual(["bytebase.gitlab-ci.yml"]);
++    const parsed = load(files[0].content) as {
++      variables: Record<string, string>;
++    };
++    expect(parsed.variables).toMatchObject({
++      BYTEBASE_URL: "https://bytebase.example.com",
++      BYTEBASE_PROJECT: "projects/shop",
++      BYTEBASE_FILE_PATTERN: "migrations/*.sql",
++      BYTEBASE_ACTION_IMAGE: "bytebase/bytebase-action:3.14.0",
++    });
++    const jobs = parsedGitlabJobs(files[0].content);
++    expect(Object.keys(jobs)).toEqual([
++      "bytebase-sql-review",
++      "bytebase-create-rollout",
++      "bytebase-deploy-to-test",
++      "bytebase-deploy-to-staging",
++      "bytebase-deploy-to-prod",
++    ]);
++    expect(jobs["bytebase-deploy-to-staging"].needs).toEqual([
++      "bytebase-create-rollout",
++      "bytebase-deploy-to-test",
++    ]);
++    // A deploy job must exist whenever the job it needs does.
++    expect(jobs["bytebase-deploy-to-prod"].rules).toEqual(
++      jobs["bytebase-create-rollout"].rules
++    );
++    expect(jobs["bytebase-sql-review"].rules?.[0].changes).toEqual([
++      "migrations/*.sql",
++    ]);
++    expect(GITLAB_INCLUDE).toBe("include:\n  - local: bytebase.gitlab-ci.yml");
++  });
++
++  test("the folder sets the triggers and the file pattern", () => {
++    const files = generateWorkflowFiles({ ...workflow, folder: "db/changes" });
++    expect(parse(files[1].content).on.push.paths).toEqual(["db/changes/*.sql"]);
++    expect(files[1].content).toContain("--file-pattern=db/changes/*.sql");
++    expect(files[1].content).not.toContain("migrations/");
++  });
++
++  test("the URL placeholder still parses", () => {
++    const [review] = generateWorkflowFiles({
++      ...workflow,
++      bytebaseUrl: EXTERNAL_URL_PLACEHOLDER,
++    });
++    const parsed = parse(review.content) as unknown as {
++      jobs: Record<string, { env: Record<string, string> }>;
++    };
++    expect(parsed.jobs["sql-review"].env.BYTEBASE_URL).toBe("{EXTERNAL_URL}");
++  });
++});
++
++describe("isValidMigrationFolder", () => {
++  test.each([
++    ["migrations", true],
++    ["db/migrations", true],
++    ["db/v1.2_changes", true],
++    ["", false],
++    ["/migrations", false],
++    ["migrations/", false],
++    ["db/../migrations", false],
++    [".", false],
++    ["my migrations", false],
++    ["migrations/*", false],
++  ])("%s is %s", (folder, valid) => {
++    expect(isValidMigrationFolder(folder)).toBe(valid);
++  });
++});
+diff --git a/frontend/src/routes/project/gitopsWorkflowYaml.ts b/frontend/src/routes/project/gitopsWorkflowYaml.ts
+index 0dc719f..8334813 100644
+--- a/frontend/src/routes/project/gitopsWorkflowYaml.ts
++++ b/frontend/src/routes/project/gitopsWorkflowYaml.ts
+@@ -14,6 +14,249 @@ export function bytebaseActionImage(serverVersion: string): string {
+     : "bytebase/bytebase-action";
+ }
+ 
++// The folder the generated workflows watch for migration files, unless the
++// owner changes it.
++export const DEFAULT_MIGRATION_FOLDER = "migrations";
++
++// Written in place of the Bytebase URL while the workspace External URL is not
++// set. The page shows it marked and does not offer the files for copying.
++export const EXTERNAL_URL_PLACEHOLDER = "{EXTERNAL_URL}";
++
++// A relative folder path: segments of letters, digits, ".", "_" and "-",
++// joined by "/", with no "." or ".." segment.
++export function isValidMigrationFolder(folder: string): boolean {
++  if (!/^[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*$/.test(folder)) return false;
++  return folder.split("/").every((part) => part !== "." && part !== "..");
++}
++
++export type WorkflowProvider = "github" | "gitlab";
++
++export interface WorkflowParams {
++  provider: WorkflowProvider;
++  // The workspace External URL, or EXTERNAL_URL_PLACEHOLDER.
++  bytebaseUrl: string;
++  actionImage: string;
++  workloadIdentityEmail: string;
++  projectId: string;
++  // One database group, or one or more databases, as resource names.
++  targets: string[];
++  // Environment IDs in deploy order, one deploy job each.
++  environments: string[];
++  folder: string;
++}
++
++export interface WorkflowFile {
++  path: string;
++  content: string;
++}
++
++export const GITLAB_WORKFLOW_PATH = "bytebase.gitlab-ci.yml";
++
++// The line the owner adds to the project's own .gitlab-ci.yml.
++export const GITLAB_INCLUDE = `include:
++  - local: ${GITLAB_WORKFLOW_PATH}`;
++
++// Every file the owner adds for the given git provider, in the order shown.
++export function generateWorkflowFiles(p: WorkflowParams): WorkflowFile[] {
++  if (p.provider === "gitlab") {
++    return [{ path: GITLAB_WORKFLOW_PATH, content: gitlabWorkflow(p) }];
++  }
++  return [
++    {
++      path: ".github/workflows/bytebase-review.yml",
++      content: githubReviewWorkflow(p),
++    },
++    {
++      path: ".github/workflows/bytebase-deploy.yml",
++      content: githubDeployWorkflow(p),
++    },
++  ];
++}
++
++const filePattern = (p: WorkflowParams) => `${p.folder}/*.sql`;
++const targetList = (p: WorkflowParams) => p.targets.join(",");
++
++function githubReviewWorkflow(p: WorkflowParams): string {
++  return `name: Bytebase SQL review
++on:
++  pull_request:
++    paths: ["${filePattern(p)}"]
++jobs:
++  sql-review:
++    # Reviews pull requests into the default branch, the branch that deploys.
++    if: github.base_ref == github.event.repository.default_branch
++    permissions:
++      id-token: write
++      pull-requests: write
++    runs-on: ubuntu-latest
++    container:
++      image: ${p.actionImage}
++    env:
++      BYTEBASE_URL: "${p.bytebaseUrl}"
++      BYTEBASE_WORKLOAD_IDENTITY: ${p.workloadIdentityEmail}
++    steps:
++      - uses: actions/checkout@v4
++${exchangeTokenStep("      ")}
++      - name: SQL review
++        env:
++          GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
++        run: |
++          bytebase-action check \\
++            --url=$BYTEBASE_URL \\
++            ${accessTokenFlag} \\
++            --project=projects/${p.projectId} \\
++            --targets=${targetList(p)} \\
++            --file-pattern=${filePattern(p)}
++`;
++}
++
++const githubDeployJob = (
++  p: WorkflowParams,
++  environment: string,
++  previous: string[]
++) => `  deploy-to-${environment}:
++    needs: [${previous.join(", ")}]
++    permissions:
++      id-token: write
++    runs-on: ubuntu-latest
++    environment: ${environment}
++    container:
++      image: ${p.actionImage}
++    steps:
++      - uses: actions/checkout@v4
++${exchangeTokenStep("      ")}
++      - name: Deploy to ${environment}
++        run: |
++          bytebase-action rollout \\
++            --url=$BYTEBASE_URL \\
++            ${accessTokenFlag} \\
++            --project=$BYTEBASE_PROJECT \\
++            --target-stage=environments/${environment} \\
++            --plan=\${{ needs.create-rollout.outputs.bytebase-plan }}
++`;
++
++function githubDeployWorkflow(p: WorkflowParams): string {
++  const deployJobs = p.environments.map((environment, i) =>
++    githubDeployJob(
++      p,
++      environment,
++      i === 0
++        ? ["create-rollout"]
++        : ["create-rollout", `deploy-to-${p.environments[i - 1]}`]
++    )
++  );
++  return `name: Bytebase deploy
++on:
++  push:
++    paths: ["${filePattern(p)}"]
++env:
++  BYTEBASE_URL: "${p.bytebaseUrl}"
++  BYTEBASE_WORKLOAD_IDENTITY: ${p.workloadIdentityEmail}
++  BYTEBASE_PROJECT: projects/${p.projectId}
++jobs:
++  create-rollout:
++    # Deploys what is merged into the default branch.
++    if: github.ref_name == github.event.repository.default_branch
++    permissions:
++      id-token: write
++    runs-on: ubuntu-latest
++    container:
++      image: ${p.actionImage}
++    outputs:
++      bytebase-plan: \${{ steps.set-output.outputs.plan }}
++    steps:
++      - uses: actions/checkout@v4
++${exchangeTokenStep("      ")}
++      - name: Create rollout
++        run: |
++          bytebase-action rollout \\
++            --url=$BYTEBASE_URL \\
++            ${accessTokenFlag} \\
++            --project=$BYTEBASE_PROJECT \\
++            --targets=${targetList(p)} \\
++            --file-pattern=${filePattern(p)} \\
++            --output=\${{ runner.temp }}/bytebase-metadata.json
++      - name: Set output
++        id: set-output
++        run: |
++          PLAN=$(jq -r .plan \${{ runner.temp }}/bytebase-metadata.json)
++          echo "plan=$PLAN" >> $GITHUB_OUTPUT
++${deployJobs.join("")}`;
++}
++
++const gitlabRules = (p: WorkflowParams, condition: string) => `  rules:
++    - if: ${condition}
++      changes:
++        - ${filePattern(p)}`;
++
++const gitlabDeployJob = (
++  p: WorkflowParams,
++  environment: string,
++  previous: string[]
++) => `
++bytebase-deploy-to-${environment}:
++  stage: deploy
++  image: $BYTEBASE_ACTION_IMAGE
++  needs: [${previous.join(", ")}]
++  id_tokens:
++    GITLAB_OIDC_TOKEN:
++      aud: ${GENERATED_WORKFLOW_AUDIENCE}
++${gitlabRules(p, "$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH")}
++  environment: ${environment}
++  script:
++${gitlabExchangeScript}
++    - PLAN=$(jq -r .plan bytebase-metadata.json)
++    - bytebase-action rollout --url=$BYTEBASE_URL --access-token=$BYTEBASE_ACCESS_TOKEN --project=$BYTEBASE_PROJECT --target-stage=environments/${environment} --plan=$PLAN
++`;
++
++function gitlabWorkflow(p: WorkflowParams): string {
++  const deployJobs = p.environments.map((environment, i) =>
++    gitlabDeployJob(
++      p,
++      environment,
++      i === 0
++        ? ["bytebase-create-rollout"]
++        : [
++            "bytebase-create-rollout",
++            `bytebase-deploy-to-${p.environments[i - 1]}`,
++          ]
++    )
++  );
++  return `# Bytebase review and deploy jobs. They run in the default stages test and deploy.
++variables:
++  BYTEBASE_URL: "${p.bytebaseUrl}"
++  BYTEBASE_WORKLOAD_IDENTITY: ${p.workloadIdentityEmail}
++  BYTEBASE_PROJECT: projects/${p.projectId}
++  BYTEBASE_TARGETS: ${targetList(p)}
++  BYTEBASE_FILE_PATTERN: "${filePattern(p)}"
++  BYTEBASE_ACTION_IMAGE: ${p.actionImage}
++
++bytebase-sql-review:
++  stage: test
++  image: $BYTEBASE_ACTION_IMAGE
++  id_tokens:
++    GITLAB_OIDC_TOKEN:
++      aud: ${GENERATED_WORKFLOW_AUDIENCE}
++${gitlabRules(p, '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == $CI_DEFAULT_BRANCH')}
++  script:
++${gitlabExchangeScript}
++    - bytebase-action check --url=$BYTEBASE_URL --access-token=$BYTEBASE_ACCESS_TOKEN --project=$BYTEBASE_PROJECT --targets=$BYTEBASE_TARGETS --file-pattern=$BYTEBASE_FILE_PATTERN
++
++bytebase-create-rollout:
++  stage: deploy
++  image: $BYTEBASE_ACTION_IMAGE
++  id_tokens:
++    GITLAB_OIDC_TOKEN:
++      aud: ${GENERATED_WORKFLOW_AUDIENCE}
++${gitlabRules(p, "$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH")}
++  script:
++${gitlabExchangeScript}
++    - bytebase-action rollout --url=$BYTEBASE_URL --access-token=$BYTEBASE_ACCESS_TOKEN --project=$BYTEBASE_PROJECT --targets=$BYTEBASE_TARGETS --file-pattern=$BYTEBASE_FILE_PATTERN --output=bytebase-metadata.json
++  artifacts:
++    paths: [bytebase-metadata.json]
++${deployJobs.join("")}`;
++}
++
+ export interface YamlParams {
+   branch: string;
+   runsOn?: string;
+-- 
+2.43.0
+
