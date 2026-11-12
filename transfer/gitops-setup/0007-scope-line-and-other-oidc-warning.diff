@@ -1,0 +1,285 @@
+diff --git a/frontend/src/locales/en-US.json b/frontend/src/locales/en-US.json
+index f2ab543..8691dab 100644
+--- a/frontend/src/locales/en-US.json
++++ b/frontend/src/locales/en-US.json
+@@ -1372,7 +1372,9 @@
+         "question": "Which workload identity does your workflow sign in as?",
+         "read-from": "Read from this identity",
+         "repositories": "Repositories that can sign in",
+-        "role": "Role in this project"
++        "role": "Role in this project",
++        "unsupported-description": "It signs in through another OIDC provider. To continue, pick or create a workload identity for GitHub Actions or GitLab CI.",
++        "unsupported-title": "Setup has no workflow files for this identity"
+       },
+       "no-database": {
+         "description": "GitOps deploys to the databases of this project. Add or transfer a database to this project first.",
+@@ -1383,6 +1385,7 @@
+         "title": "This project has no workload identity"
+       },
+       "outcome": "Every pull request that changes the migration folder gets a Bytebase review. Merging it deploys.",
++      "scope": "Setup writes workflow files for GitHub Actions and GitLab CI. For other CI/CD platforms, see the <docs>GitOps docs</docs>.",
+       "steps": {
+         "databases": "Databases",
+         "workflow-files": "Workflow files",
+diff --git a/frontend/src/locales/es-ES.json b/frontend/src/locales/es-ES.json
+index c697198..5cf1f90 100644
+--- a/frontend/src/locales/es-ES.json
++++ b/frontend/src/locales/es-ES.json
+@@ -1372,7 +1372,9 @@
+         "question": "¿Con qué identidad de carga de trabajo inicia sesión tu flujo de trabajo?",
+         "read-from": "Leído de esta identidad",
+         "repositories": "Repositorios que pueden iniciar sesión",
+-        "role": "Rol en este proyecto"
++        "role": "Rol en este proyecto",
++        "unsupported-description": "Inicia sesión mediante otro proveedor de OIDC. Para continuar, elige o crea una identidad de carga de trabajo para GitHub Actions o GitLab CI.",
++        "unsupported-title": "La configuración no tiene archivos de flujo de trabajo para esta identidad"
+       },
+       "no-database": {
+         "description": "GitOps despliega en las bases de datos de este proyecto. Primero agrega o transfiere una base de datos a este proyecto.",
+@@ -1383,6 +1385,7 @@
+         "title": "Este proyecto no tiene identidades de carga de trabajo"
+       },
+       "outcome": "Cada pull request que cambia la carpeta de migraciones recibe una revisión de Bytebase. Al fusionarlo, se despliega.",
++      "scope": "La configuración genera archivos de flujo de trabajo para GitHub Actions y GitLab CI. Para otras plataformas de CI/CD, consulta la <docs>documentación de GitOps</docs>.",
+       "steps": {
+         "databases": "Bases de datos",
+         "workflow-files": "Archivos del flujo de trabajo",
+diff --git a/frontend/src/locales/ja-JP.json b/frontend/src/locales/ja-JP.json
+index 6b09809..80f8747 100644
+--- a/frontend/src/locales/ja-JP.json
++++ b/frontend/src/locales/ja-JP.json
+@@ -1372,7 +1372,9 @@
+         "question": "ワークフローはどのワークロード ID でサインインしますか？",
+         "read-from": "この ID から読み取った情報",
+         "repositories": "サインインできるリポジトリ",
+-        "role": "このプロジェクトでのロール"
++        "role": "このプロジェクトでのロール",
++        "unsupported-description": "この ID は別の OIDC プロバイダー経由でサインインします。続行するには、GitHub Actions または GitLab CI 用のワークロード ID を選択または作成してください。",
++        "unsupported-title": "セットアップにはこの ID 用のワークフローファイルがありません"
+       },
+       "no-database": {
+         "description": "GitOps はこのプロジェクトのデータベースにデプロイします。まずデータベースをこのプロジェクトに追加または移動してください。",
+@@ -1383,6 +1385,7 @@
+         "title": "このプロジェクトにはワークロード ID がありません"
+       },
+       "outcome": "マイグレーションフォルダーを変更するすべてのプルリクエストが Bytebase のレビューを受けます。マージするとデプロイされます。",
++      "scope": "セットアップは GitHub Actions と GitLab CI 用のワークフローファイルを作成します。その他の CI/CD プラットフォームについては <docs>GitOps ドキュメント</docs>をご覧ください。",
+       "steps": {
+         "databases": "データベース",
+         "workflow-files": "ワークフローファイル",
+diff --git a/frontend/src/locales/vi-VN.json b/frontend/src/locales/vi-VN.json
+index 84a1cc1..0bbd11a 100644
+--- a/frontend/src/locales/vi-VN.json
++++ b/frontend/src/locales/vi-VN.json
+@@ -1372,7 +1372,9 @@
+         "question": "Workflow của bạn đăng nhập bằng workload identity nào?",
+         "read-from": "Đọc từ identity này",
+         "repositories": "Repository có thể đăng nhập",
+-        "role": "Vai trò trong dự án này"
++        "role": "Vai trò trong dự án này",
++        "unsupported-description": "Identity này đăng nhập qua một nhà cung cấp OIDC khác. Để tiếp tục, hãy chọn hoặc tạo workload identity cho GitHub Actions hoặc GitLab CI.",
++        "unsupported-title": "Phần thiết lập không có tệp workflow cho identity này"
+       },
+       "no-database": {
+         "description": "GitOps triển khai lên các cơ sở dữ liệu của dự án này. Hãy thêm hoặc chuyển một cơ sở dữ liệu vào dự án này trước.",
+@@ -1383,6 +1385,7 @@
+         "title": "Dự án này chưa có workload identity"
+       },
+       "outcome": "Mỗi pull request thay đổi thư mục migration đều được Bytebase review. Khi merge, thay đổi được triển khai.",
++      "scope": "Phần thiết lập tạo tệp workflow cho GitHub Actions và GitLab CI. Với các nền tảng CI/CD khác, hãy xem <docs>tài liệu GitOps</docs>.",
+       "steps": {
+         "databases": "Cơ sở dữ liệu",
+         "workflow-files": "Tệp workflow",
+diff --git a/frontend/src/locales/zh-CN.json b/frontend/src/locales/zh-CN.json
+index 35f8e56..7e7d4cb 100644
+--- a/frontend/src/locales/zh-CN.json
++++ b/frontend/src/locales/zh-CN.json
+@@ -1372,7 +1372,9 @@
+         "question": "你的工作流以哪个工作负载身份登录？",
+         "read-from": "从此身份读取",
+         "repositories": "可登录的仓库",
+-        "role": "在此项目中的角色"
++        "role": "在此项目中的角色",
++        "unsupported-description": "此身份通过其他 OIDC 提供商登录。如需继续，请选择或创建用于 GitHub Actions 或 GitLab CI 的工作负载身份。",
++        "unsupported-title": "设置中没有适用于此身份的工作流文件"
+       },
+       "no-database": {
+         "description": "GitOps 部署到此项目的数据库。请先向此项目添加或转移一个数据库。",
+@@ -1383,6 +1385,7 @@
+         "title": "此项目没有工作负载身份"
+       },
+       "outcome": "每个修改迁移文件夹的拉取请求都会获得 Bytebase 审核。合并后即部署。",
++      "scope": "设置会为 GitHub Actions 和 GitLab CI 生成工作流文件。其他 CI/CD 平台请参阅 <docs>GitOps 文档</docs>。",
+       "steps": {
+         "databases": "数据库",
+         "workflow-files": "工作流文件",
+diff --git a/frontend/src/routes/project/ProjectGitOpsPage.test.tsx b/frontend/src/routes/project/ProjectGitOpsPage.test.tsx
+index 5bd93a8..283fe58 100644
+--- a/frontend/src/routes/project/ProjectGitOpsPage.test.tsx
++++ b/frontend/src/routes/project/ProjectGitOpsPage.test.tsx
+@@ -291,7 +291,10 @@ vi.mock("./WorkloadIdentitySelect", () => ({
+   ),
+ }));
+ 
+-// Create hands back NEW_CI, as the real dialog does with closeOnCreate.
++// The identity the Create dialog hands back.
++let createdIdentity = NEW_CI;
++
++// Create hands back createdIdentity, as the real dialog does with closeOnCreate.
+ vi.mock("@/components/WorkloadIdentityFlow/WorkloadIdentityDialog", () => ({
+   WorkloadIdentityDialog: ({
+     open,
+@@ -309,10 +312,12 @@ vi.mock("@/components/WorkloadIdentityFlow/WorkloadIdentityDialog", () => ({
+         type="button"
+         data-close-on-create={String(closeOnCreate)}
+         onClick={() => {
+-          mocks.state.identitiesByName[NEW_CI.name] = NEW_CI;
+-          mocks.state.members.push(`workloadIdentity:${NEW_CI.email}`);
++          const created = createdIdentity;
++          mocks.state.identities = [...mocks.state.identities, created];
++          mocks.state.identitiesByName[created.name] = created;
++          mocks.state.members.push(`workloadIdentity:${created.email}`);
+           setPolicy();
+-          onCreated(NEW_CI);
++          onCreated(created);
+           onClose();
+         }}
+       >
+@@ -420,6 +425,7 @@ const openStep3 = async (identity: WorkloadIdentity) => {
+ };
+ 
+ beforeEach(() => {
++  createdIdentity = NEW_CI;
+   mocks.canCreate = true;
+   mocks.serverState.externalUrl = "https://bytebase.example.com";
+   mocks.serverState.needConfigureExternalUrl = false;
+@@ -614,6 +620,44 @@ describe("ProjectGitOpsPage", () => {
+     expect(portal("identity-select")).toBe("true");
+   });
+ 
++  test("an identity for another OIDC provider that Create returns shows the reason", async () => {
++    createdIdentity = OTHER_CI;
++    setProject({
++      groups: 1,
++      databases: [databaseOf("shop", "environments/prod")],
++    });
++    await render();
++    await click(continueButton());
++    await click(button("gitops.setup.identity.create"));
++    await click(button("dialog-create"));
++
++    expect(currentStep()).toBe("gitops.setup.steps.workload-identity");
++    expect(container.textContent).toContain(
++      "gitops.setup.identity.unsupported-title"
++    );
++    expect(container.textContent).not.toContain(
++      "gitops.setup.identity.no-role-title"
++    );
++    expect(continueButton()?.disabled).toBe(true);
++  });
++
++  test("the scope line shows on every step", async () => {
++    setProject({
++      groups: 1,
++      databases: [databaseOf("shop", "environments/prod")],
++      identities: [DEPLOY_CI],
++      members: [DEPLOY_CI],
++    });
++    await render();
++
++    expect(container.textContent).toContain("gitops.setup.scope");
++    await click(continueButton());
++    expect(container.textContent).toContain("gitops.setup.scope");
++    await click(continueButton());
++    expect(currentStep()).toBe("gitops.setup.steps.workflow-files");
++    expect(container.textContent).toContain("gitops.setup.scope");
++  });
++
+   test("the footer holds Continue on steps 1 and 2 and only Back on step 3", async () => {
+     await openStep3(DEPLOY_CI);
+     expect(footerButtons()).toEqual(["common.back"]);
+diff --git a/frontend/src/routes/project/ProjectGitOpsPage.tsx b/frontend/src/routes/project/ProjectGitOpsPage.tsx
+index faca7f2..f3928ad 100644
+--- a/frontend/src/routes/project/ProjectGitOpsPage.tsx
++++ b/frontend/src/routes/project/ProjectGitOpsPage.tsx
+@@ -1,6 +1,6 @@
+ import { ArrowLeft } from "lucide-react";
+ import { useEffect, useMemo, useState } from "react";
+-import { useTranslation } from "react-i18next";
++import { Trans, useTranslation } from "react-i18next";
+ import {
+   PROJECT_V1_ROUTE_DATABASES,
+   PROJECT_V1_ROUTE_RELEASES,
+@@ -41,6 +41,10 @@ import {
+   generateWorkflowFiles,
+ } from "./gitopsWorkflowYaml";
+ 
++// The same guide the Releases page links to.
++const GITOPS_DOCS_URL =
++  "https://docs.bytebase.com/gitops/overview?source=console";
++
+ const DATABASES = 0;
+ const WORKLOAD_IDENTITY = 1;
+ const WORKFLOW_FILES = 2;
+@@ -241,6 +245,12 @@ export function ProjectGitOpsPage({ projectId }: { projectId: string }) {
+           <p className="text-sm text-control-light">
+             {t("gitops.setup.outcome")}
+           </p>
++          <p className="text-sm text-control-light">
++            <Trans
++              i18nKey="gitops.setup.scope"
++              components={{ docs: <DocsLink /> }}
++            />
++          </p>
+         </div>
+ 
+         <ExternalUrlAlert variant="warning">
+@@ -357,3 +367,17 @@ export function ProjectGitOpsPage({ projectId }: { projectId: string }) {
+     </ProjectPageLayout>
+   );
+ }
++
++// The link in the scope line, filled in through <Trans components={{ docs }} />.
++function DocsLink({ children }: { readonly children?: React.ReactNode }) {
++  return (
++    <a
++      href={GITOPS_DOCS_URL}
++      target="_blank"
++      rel="noopener noreferrer"
++      className="font-medium text-accent hover:underline"
++    >
++      {children}
++    </a>
++  );
++}
+diff --git a/frontend/src/routes/project/gitops-setup/WorkloadIdentityStep.tsx b/frontend/src/routes/project/gitops-setup/WorkloadIdentityStep.tsx
+index e64bfdc..facfd6a 100644
+--- a/frontend/src/routes/project/gitops-setup/WorkloadIdentityStep.tsx
++++ b/frontend/src/routes/project/gitops-setup/WorkloadIdentityStep.tsx
+@@ -58,6 +58,8 @@ export function WorkloadIdentityStep({
+     [repositoriesText]
+   );
+ 
++  const provider = workflowProviderOf(identity);
++
+   const createButton = (appearance: "solid" | "outline") =>
+     canCreate && (
+       <Button appearance={appearance} onClick={onCreate}>
+@@ -124,7 +126,16 @@ export function WorkloadIdentityStep({
+         </section>
+       )}
+ 
+-      {identity && roles?.length === 0 && (
++      {/* The Create dialog can return an identity for another OIDC provider. */}
++      {identity && !provider && (
++        <Alert
++          variant="warning"
++          title={t("gitops.setup.identity.unsupported-title")}
++          description={t("gitops.setup.identity.unsupported-description")}
++        />
++      )}
++
++      {identity && provider && roles?.length === 0 && (
+         <Alert
+           variant="warning"
+           title={t("gitops.setup.identity.no-role-title")}
