@@ -1,0 +1,213 @@
+diff --git a/frontend/src/routes/project/gitopsWorkflowYaml.test.ts b/frontend/src/routes/project/gitopsWorkflowYaml.test.ts
+index 0312d51..8cbef14 100644
+--- a/frontend/src/routes/project/gitopsWorkflowYaml.test.ts
++++ b/frontend/src/routes/project/gitopsWorkflowYaml.test.ts
+@@ -50,6 +50,9 @@ type Job = {
+   stage?: string;
+   rules?: { if: string; changes: string[] }[];
+   container?: { image: string };
++  env?: Record<string, string>;
++  permissions?: Record<string, string>;
++  id_tokens?: Record<string, { aud: string }>;
+   steps?: { run?: string }[];
+   script?: string[];
+ };
+@@ -204,22 +207,50 @@ describe("isValidMigrationFolder", () => {
+ });
+ 
+ describe("sign-in in the generated files", () => {
++  const email = "deploy-ci@shop.workload.bytebase.com";
++
++  // bytebase-action signs in by itself, so the files hold no exchange script.
+   test.each([
+-    ["GitHub Actions", "github", 5],
+-    ["GitLab CI", "gitlab", 5],
++    ["GitHub Actions", "github"],
++    ["GitLab CI", "gitlab"],
+   ] as const)(
+-    "%s: every job stops when the exchange fails",
+-    (_, provider, jobCount) => {
++    "%s: no job has a sign-in step or passes a token",
++    (_, provider) => {
+       const yaml = generateWorkflowFiles({ ...workflow, provider })
+         .map((file) => file.content)
+         .join("\n");
+-      // A failed exchange returns no accessToken, so the job must stop there.
+-      expect(yaml.match(/jq -r '\.accessToken \/\/ empty'/g)).toHaveLength(
+-        jobCount
+-      );
+-      expect(yaml.match(/if \[ -z "\$ACCESS_TOKEN" \]; then/g)).toHaveLength(
+-        jobCount
+-      );
++      expect(yaml).not.toContain("exchangeToken");
++      expect(yaml).not.toContain("access-token");
++      expect(yaml).not.toContain("ACCESS_TOKEN");
++      expect(yaml).not.toContain("curl");
+     }
+   );
++
++  test("every GitHub job names the identity and may request an ID token", () => {
++    const jobs = generateWorkflowFiles(workflow).flatMap((file) => {
++      const parsed = parse(file.content);
++      return Object.values(parsed.jobs).map((job) => ({
++        job,
++        identity:
++          job.env?.BYTEBASE_WORKLOAD_IDENTITY ??
++          parsed.env?.BYTEBASE_WORKLOAD_IDENTITY,
++      }));
++    });
++    expect(jobs).toHaveLength(5);
++    for (const { job, identity } of jobs) {
++      expect(identity).toBe(email);
++      expect(job.permissions?.["id-token"]).toBe("write");
++    }
++  });
++
++  test("every GitLab job hands its ID token to the action", () => {
++    const [file] = generateWorkflowFiles({ ...workflow, provider: "gitlab" });
++    const parsed = load(file.content) as { variables: Record<string, string> };
++    expect(parsed.variables.BYTEBASE_WORKLOAD_IDENTITY).toBe(email);
++    const jobs = Object.values(parsedGitlabJobs(file.content));
++    expect(jobs).toHaveLength(5);
++    for (const job of jobs) {
++      expect(job.id_tokens).toEqual({ BYTEBASE_ID_TOKEN: { aud: "bytebase" } });
++    }
++  });
+ });
+diff --git a/frontend/src/routes/project/gitopsWorkflowYaml.ts b/frontend/src/routes/project/gitopsWorkflowYaml.ts
+index fa93b97..349d177 100644
+--- a/frontend/src/routes/project/gitopsWorkflowYaml.ts
++++ b/frontend/src/routes/project/gitopsWorkflowYaml.ts
+@@ -57,6 +57,11 @@ export const GITLAB_INCLUDE = `include:
+   - local: ${GITLAB_WORKFLOW_PATH}`;
+ 
+ // Every file the owner adds for the given git provider, in the order shown.
++//
++// No job has a sign-in step: bytebase-action signs in as
++// BYTEBASE_WORKLOAD_IDENTITY with the job's own ID token. On GitHub it requests
++// the token itself, which needs `id-token: write`. On GitLab the job hands it
++// over as BYTEBASE_ID_TOKEN.
+ export function generateWorkflowFiles(p: WorkflowParams): WorkflowFile[] {
+   if (p.provider === "gitlab") {
+     return [{ path: GITLAB_WORKFLOW_PATH, content: gitlabWorkflow(p) }];
+@@ -96,14 +101,12 @@ jobs:
+       BYTEBASE_WORKLOAD_IDENTITY: ${p.workloadIdentityEmail}
+     steps:
+       - uses: actions/checkout@v4
+-${exchangeTokenStep("      ")}
+       - name: SQL review
+         env:
+           GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
+         run: |
+           bytebase-action check \\
+             --url=$BYTEBASE_URL \\
+-            ${accessTokenFlag} \\
+             --project=projects/${p.projectId} \\
+             --targets=${targetList(p)} \\
+             --file-pattern=${filePattern(p)}
+@@ -124,12 +127,10 @@ const githubDeployJob = (
+       image: ${p.actionImage}
+     steps:
+       - uses: actions/checkout@v4
+-${exchangeTokenStep("      ")}
+       - name: Deploy to ${environment}
+         run: |
+           bytebase-action rollout \\
+             --url=$BYTEBASE_URL \\
+-            ${accessTokenFlag} \\
+             --project=$BYTEBASE_PROJECT \\
+             --target-stage=environments/${environment} \\
+             --plan=\${{ needs.create-rollout.outputs.bytebase-plan }}
+@@ -166,12 +167,10 @@ jobs:
+       bytebase-plan: \${{ steps.set-output.outputs.plan }}
+     steps:
+       - uses: actions/checkout@v4
+-${exchangeTokenStep("      ")}
+       - name: Create rollout
+         run: |
+           bytebase-action rollout \\
+             --url=$BYTEBASE_URL \\
+-            ${accessTokenFlag} \\
+             --project=$BYTEBASE_PROJECT \\
+             --targets=${targetList(p)} \\
+             --file-pattern=${filePattern(p)} \\
+@@ -199,14 +198,13 @@ bytebase-deploy-to-${environment}:
+   image: $BYTEBASE_ACTION_IMAGE
+   needs: [${previous.join(", ")}]
+   id_tokens:
+-    GITLAB_OIDC_TOKEN:
++    BYTEBASE_ID_TOKEN:
+       aud: ${GENERATED_WORKFLOW_AUDIENCE}
+ ${gitlabRules(p, "$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH")}
+   environment: ${environment}
+   script:
+-${gitlabExchangeScript}
+     - PLAN=$(jq -r .plan bytebase-metadata.json)
+-    - bytebase-action rollout --url=$BYTEBASE_URL --access-token=$BYTEBASE_ACCESS_TOKEN --project=$BYTEBASE_PROJECT --target-stage=environments/${environment} --plan=$PLAN
++    - bytebase-action rollout --url=$BYTEBASE_URL --project=$BYTEBASE_PROJECT --target-stage=environments/${environment} --plan=$PLAN
+ `;
+ 
+ function gitlabWorkflow(p: WorkflowParams): string {
+@@ -235,58 +233,22 @@ bytebase-sql-review:
+   stage: test
+   image: $BYTEBASE_ACTION_IMAGE
+   id_tokens:
+-    GITLAB_OIDC_TOKEN:
++    BYTEBASE_ID_TOKEN:
+       aud: ${GENERATED_WORKFLOW_AUDIENCE}
+ ${gitlabRules(p, '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == $CI_DEFAULT_BRANCH')}
+   script:
+-${gitlabExchangeScript}
+-    - bytebase-action check --url=$BYTEBASE_URL --access-token=$BYTEBASE_ACCESS_TOKEN --project=$BYTEBASE_PROJECT --targets=$BYTEBASE_TARGETS --file-pattern=$BYTEBASE_FILE_PATTERN
++    - bytebase-action check --url=$BYTEBASE_URL --project=$BYTEBASE_PROJECT --targets=$BYTEBASE_TARGETS --file-pattern=$BYTEBASE_FILE_PATTERN
+ 
+ bytebase-create-rollout:
+   stage: deploy
+   image: $BYTEBASE_ACTION_IMAGE
+   id_tokens:
+-    GITLAB_OIDC_TOKEN:
++    BYTEBASE_ID_TOKEN:
+       aud: ${GENERATED_WORKFLOW_AUDIENCE}
+ ${gitlabRules(p, "$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH")}
+   script:
+-${gitlabExchangeScript}
+-    - bytebase-action rollout --url=$BYTEBASE_URL --access-token=$BYTEBASE_ACCESS_TOKEN --project=$BYTEBASE_PROJECT --targets=$BYTEBASE_TARGETS --file-pattern=$BYTEBASE_FILE_PATTERN --output=bytebase-metadata.json
++    - bytebase-action rollout --url=$BYTEBASE_URL --project=$BYTEBASE_PROJECT --targets=$BYTEBASE_TARGETS --file-pattern=$BYTEBASE_FILE_PATTERN --output=bytebase-metadata.json
+   artifacts:
+     paths: [bytebase-metadata.json]
+ ${deployJobs.join("")}`;
+ }
+-
+-const exchangeTokenStep = (indent: string) =>
+-  `${indent}- name: Exchange token
+-${indent}  id: bytebase-auth
+-${indent}  run: |
+-${indent}    OIDC_TOKEN=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \\
+-${indent}      "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=${GENERATED_WORKFLOW_AUDIENCE}" | jq -r '.value // empty' 2>/dev/null || true)
+-${indent}    if [ -z "$OIDC_TOKEN" ]; then
+-${indent}      echo "::error::Failed to get a GitHub OIDC token. Check that the job has the id-token: write permission."
+-${indent}      exit 1
+-${indent}    fi
+-${indent}    RESPONSE=$(curl -s -X POST "$BYTEBASE_URL/v1/auth:exchangeToken" \\
+-${indent}      -H "Content-Type: application/json" \\
+-${indent}      -d "{\\"token\\":\\"$OIDC_TOKEN\\",\\"email\\":\\"$BYTEBASE_WORKLOAD_IDENTITY\\"}")
+-${indent}    ACCESS_TOKEN=$(echo "$RESPONSE" | jq -r '.accessToken // empty' 2>/dev/null || true)
+-${indent}    if [ -z "$ACCESS_TOKEN" ]; then
+-${indent}      echo "::error::Failed to exchange the OIDC token for a Bytebase access token: $RESPONSE"
+-${indent}      exit 1
+-${indent}    fi
+-${indent}    echo "access-token=$ACCESS_TOKEN" >> $GITHUB_OUTPUT`;
+-
+-const accessTokenFlag =
+-  "--access-token=${{ steps.bytebase-auth.outputs.access-token }}";
+-
+-const gitlabExchangeScript = `    - |
+-      RESPONSE=$(curl -s -X POST "$BYTEBASE_URL/v1/auth:exchangeToken" \\
+-        -H "Content-Type: application/json" \\
+-        -d "{\\"token\\":\\"$GITLAB_OIDC_TOKEN\\",\\"email\\":\\"$BYTEBASE_WORKLOAD_IDENTITY\\"}")
+-      ACCESS_TOKEN=$(echo "$RESPONSE" | jq -r '.accessToken // empty' 2>/dev/null || true)
+-      if [ -z "$ACCESS_TOKEN" ]; then
+-        echo "Failed to exchange the GitLab OIDC token for a Bytebase access token: $RESPONSE"
+-        exit 1
+-      fi
+-      export BYTEBASE_ACCESS_TOKEN=$ACCESS_TOKEN`;

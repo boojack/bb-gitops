@@ -1,6 +1,6 @@
 # GitOps setup page
 
-Status: proposed · 2026-11-11 · [BYT-10423](https://linear.app/bytebase/issue/BYT-10423) · builds on the workload identity dialog, [#21942]
+Status: proposed · 2026-11-11 · [BYT-10423](https://linear.app/bytebase/issue/BYT-10423) · builds on the workload identity dialog, [#21942], and on sign-in inside the action, [#21974]
 
 The project's GitOps page sets up database changes by pull request: a workflow in the team's
 repository asks Bytebase to review each pull request and to deploy on merge.
@@ -223,14 +223,25 @@ order:
 5. For developers: "Add a file such as `migrations/0001_create_orders.sql` in a pull request. File
    names start with a version number. The workflow skips a file without one."
 
-Each job signs in with the identity's email and the job's own token. There is no secret and no build
-job. The only placeholder is the Bytebase URL while the External URL is not set (D9). The owner
-commits the files. Bytebase does not.
+Each job signs in with the identity's email and the job's own token. There is no sign-in step, no
+secret and no build job. The only placeholder is the Bytebase URL while the External URL is not set
+(D9). The owner commits the files. Bytebase does not.
 
-[#21974] moved sign-in into `bytebase-action`, so the files no longer need the token exchange
-script. The generator drops the script in a follow-up of that change, after the new action image has
-reached Bytebase Cloud (`docs/design/bytebase-action-sign-in.md`). This change leaves the sign-in
-lines as they are.
+Sign-in happens inside `bytebase-action` ([#21974], `docs/design/bytebase-action-sign-in.md`). A job
+names the identity in `BYTEBASE_WORKLOAD_IDENTITY`, and the action exchanges the job's ID token
+itself. So the files hold no token exchange script and pass no `--access-token`:
+
+- *GitHub Actions:* the job has the `id-token: write` permission. The action requests the token.
+- *GitLab CI:* the job has an `id_tokens` entry named `BYTEBASE_ID_TOKEN`, with the audience
+  `bytebase`.
+
+The owner reads these files in full in step 3. Without the script a review file is about 30 lines,
+and each line is a setting the owner can check. A refused sign-in fails the job with one line that
+carries the server's reason.
+
+The files need an action image that has [#21974]. A self-hosted server pins the image to its own
+version, so the files and the image always match. Bytebase Cloud uses the `:cloud` image, so this
+change ships after [#21974] has reached Cloud.
 
 **D6 · Every value in the files has one source, and the owner is asked for two.**
 
@@ -242,7 +253,7 @@ lines as they are.
 | Deploy environments | Which stages the deploy runs, in order | The databases' environments, in the project's environment order |
 | Workload identity | The account the workflow signs in as | **Picked or created in step 2** |
 | Email, audience, git provider | Signing in, file format and triggers | Read from the workload identity |
-| Token settings | Letting the job get its own token | Written by the page for the identity's git provider |
+| Token settings | Letting the job get its own token | Written by the page for the identity's git provider: the `id-token: write` permission on GitHub Actions, an `id_tokens` entry named `BYTEBASE_ID_TOKEN` on GitLab CI |
 | Repository | Where the owner commits the files | Read from the workload identity when it names one. The files do not contain it |
 | Deploy branch | When the deploy job runs | The repository's default branch, read by the workflow at run time |
 | Migration folder | Which files to review and deploy | Prefilled `migrations/`, editable in step 3 |
@@ -378,6 +389,10 @@ one line.
 
 - **Saving the setup in Bytebase.** Rejected (D1).
 - **Asking for the deploy branch.** Rejected (D12).
+- **Keeping the token exchange script in the files.** Rejected (D5). The script is 18 lines in every
+  GitHub job and 10 in every GitLab job, so it is most of what the owner reads in step 3. It also
+  prints the server's raw answer when sign-in is refused, and it passes the token from one step to
+  the next.
 - **Asking which runner the jobs use.** Rejected. The files use the git provider's hosted runner. A
   team with its own runners needs its own labels or runner group, which only the team knows, and it
   changes one line.
@@ -401,7 +416,7 @@ Expected files. The list is refined when implementation starts.
 | `frontend/src/routes/project/ProjectGitOpsPage.tsx`, with a new test | Becomes the three-step setup: outcome sentence, preconditions, step row, step body, footer (D1, D2, D7, D8, D9). |
 | `frontend/src/routes/project/gitops-setup/{DatabasesStep,WorkloadIdentityStep,WorkflowFilesStep}.tsx` | New: one component per step (D3, D4, D5). |
 | `frontend/src/routes/project/gitops-setup/DeployOrder.tsx` and its test | New: the deploy order list, the "+N more" list and the no-environment warning (D3). |
-| `frontend/src/routes/project/gitopsWorkflowYaml.ts` and its test | Takes the picked targets, their environments, the identity and the folder, and returns the files for the identity's git provider (D5, D6). The exact YAML is BYT-10424. |
+| `frontend/src/routes/project/gitopsWorkflowYaml.ts` and its test | Takes the picked targets, their environments, the identity and the folder, and returns the files for the identity's git provider (D5, D6). The files no longer carry the token exchange script, which is the generator change of [#21974]. The exact YAML is BYT-10424. |
 | `frontend/src/routes/project/WorkloadIdentitySelect.tsx` | Lists every identity of the project and disables those for another OIDC provider (D4). |
 | `frontend/src/components/WorkloadIdentityFlow/{WorkloadIdentityDialog,TokenSourceStep}.tsx` and the dialog's test | Two opt-in props: the token sources to offer, and close after Create and return the new identity (D10). |
 | `frontend/src/components/ui/step-indicator.tsx` | Reused as it is after [#21942]. |
@@ -414,7 +429,9 @@ Tests:
 
 - `gitopsWorkflowYaml.test.ts`: the files parse as YAML and carry the URL, project, targets, email,
   audience, action version and folder. A group gives one target. Environments appear in the
-  project's order. GitHub gives two files and GitLab one. No secret is referenced.
+  project's order. GitHub gives two files and GitLab one. No secret is referenced. No job has a
+  sign-in step or passes `--access-token`. Every GitHub job has the `id-token: write` permission,
+  and every GitLab job names its ID token `BYTEBASE_ID_TOKEN`.
 - `DeployOrder.test.tsx`: sections follow the environment order. Three chips, then "+N more". The
   total shows above three databases. The warning counts databases with no environment.
 - `WorkloadIdentityDialog.test.tsx`: limited to GitHub Actions and GitLab CI, the dialog shows two
@@ -448,6 +465,10 @@ Tests:
 - A live sign-in status for the identity on the setup page. Since [#21971], audit rows name the
   repository behind each sign-in ([BYT-10494](https://linear.app/bytebase/issue/BYT-10494)). Setup
   does not read them.
+- The one-off test workflow in the workload identity dialog
+  (`WorkloadIdentityFlow/testWorkflow.ts`). It runs without the action image, so it keeps its own
+  exchange, and its GitLab job still names the token `GITLAB_OIDC_TOKEN`. Setup does not show it
+  (D10).
 - Setup by coding agents ([BYT-10425](https://linear.app/bytebase/issue/BYT-10425)).
 - Service accounts, and CI systems other than GitHub Actions and GitLab CI.
 - Review rules, approvals and environments. They have their own places in Bytebase.

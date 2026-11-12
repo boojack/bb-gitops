@@ -6,4 +6,5 @@ b6d4dbcb8aa5ca2a047327bd1ec1141a3473a6e5dd88a866a9dea8c961ce6c4e  0003-feat-gito
 4cb4a0d62272c31a89d2ac1b9a144c7e37a69e01064961d67d863747bd45fdf4  0006-fix-picker-menus-under-sticky-footer.diff
 16abcf353151a4fd10b4afe4c91655ad05f7947b98a850c8eeb7277a6b021039  0007-scope-line-and-other-oidc-warning.diff
 909b4ec23b5a220b728407f9e8c5fb32e763c866957e9ed82baae1498ba5d2eb  0008-hide-other-oidc-in-setup-dialog.diff
-0ff7dd611b9c0ac8452bf6e588c8f21bdc2444ad03e4733ec55ca82a753bac58  gitops-setup-page.v4.md
+c91583b6d0ceaacff997d478d17f2f1d1b78b6c434045a1dd23bdd2cf8c34c27  0009-drop-token-exchange-script-from-workflow-files.diff
+bcccc4e068966bde7db2842422649cb3915d7c331412400140ac93f9d03fae5c  gitops-setup-page.v5.md
