@@ -213,9 +213,10 @@ order:
 2. The repository, as a link, when the identity names one. A workload identity does not require a
    repository: it can trust every repository of an owner. In that case this line is left out.
 3. The generated files for the identity's git provider, each with its path in a header bar and a
-   copy button, one under the other, with no tabs. A long file starts short (see below). GitHub
-   Actions: `.github/workflows/bytebase-review.yml` reviews pull requests that change migration
-   files, and `.github/workflows/bytebase-deploy.yml` deploys on each merge. GitLab CI: one
+   copy button, one under the other, with no tabs. The header bar holds the path and the copy
+   button, and nothing else. A long file starts short (see below). GitHub Actions:
+   `.github/workflows/bytebase-review.yml` reviews pull requests that change migration files, and
+   `.github/workflows/bytebase-deploy.yml` deploys on each merge. GitLab CI: one
    `bytebase.gitlab-ci.yml` with both jobs, plus the one `include` line to add to `.gitlab-ci.yml`.
 4. What happens next: "Once the files are on the default branch, the next pull request that changes
    the migration folder gets a Bytebase review comment. Merging it deploys." GitLab says "merge
@@ -414,6 +415,9 @@ one line.
   page that scrolls takes the wheel or the finger when the owner means to move the page.
 - **Showing only each file's header bar until it is opened.** Rejected. The first lines say what the
   file does: its name, its trigger and its paths.
+- **A label after each path ("new file", "add these lines").** Rejected. Every generated file is
+  new, so "new file" tells the owner nothing. The path `.gitlab-ci.yml` and the two `include` lines
+  already say where those lines go, and adding lines to that file is ordinary GitLab work.
 - **Keeping the token exchange script in the files.** Rejected (D5). The script is 18 lines in every
   GitHub job and 10 in every GitLab job, so it is most of what the owner reads in step 3. It also
   prints the server's raw answer when sign-in is refused, and it passes the token from one step to

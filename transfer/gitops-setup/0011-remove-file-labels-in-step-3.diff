@@ -1,0 +1,178 @@
+diff --git a/frontend/src/locales/en-US.json b/frontend/src/locales/en-US.json
+index daf34d7..89bedad 100644
+--- a/frontend/src/locales/en-US.json
++++ b/frontend/src/locales/en-US.json
+@@ -1341,7 +1341,6 @@
+       },
+       "external-url-description": "Your workflow uses this address to reach Bytebase. You can go through the steps now. The workflow files are complete once a workspace admin sets it.",
+       "files": {
+-        "add-lines": "add these lines",
+         "copy-off": "Copy is off until the External URL is set",
+         "description": "The files already contain your databases and your workload identity. Copy them as they are.",
+         "developers-github": "For developers: add a file such as <code>{{file}}</code> in a pull request. File names start with a version number. The workflow skips a file without one.",
+@@ -1350,7 +1349,6 @@
+         "folder-invalid": "Enter a folder path relative to the repository root, such as migrations or db/migrations.",
+         "folder-label": "Migration folder",
+         "heading": "Add the files to your repository",
+-        "new-file": "new file",
+         "next-github": "Once the files are on the default branch, the next pull request that changes the migration folder gets a Bytebase review comment. Merging it deploys.",
+         "next-gitlab": "Once the files are on the default branch, the next merge request that changes the migration folder gets a Bytebase review comment. Merging it deploys.",
+         "next-title": "What happens next",
+diff --git a/frontend/src/locales/es-ES.json b/frontend/src/locales/es-ES.json
+index 145ff47..0aba667 100644
+--- a/frontend/src/locales/es-ES.json
++++ b/frontend/src/locales/es-ES.json
+@@ -1341,7 +1341,6 @@
+       },
+       "external-url-description": "Tu flujo de trabajo usa esta dirección para conectarse a Bytebase. Ya puedes seguir los pasos. Los archivos del flujo de trabajo estarán completos cuando un administrador del espacio de trabajo la configure.",
+       "files": {
+-        "add-lines": "agrega estas líneas",
+         "copy-off": "Copiar está desactivado hasta que se configure la URL externa",
+         "description": "Los archivos ya contienen tus bases de datos y tu identidad de carga de trabajo. Cópialos tal como están.",
+         "developers-github": "Para desarrolladores: agrega un archivo como <code>{{file}}</code> en un pull request. Los nombres de archivo empiezan con un número de versión. El flujo de trabajo omite un archivo sin él.",
+@@ -1350,7 +1349,6 @@
+         "folder-invalid": "Introduce una ruta de carpeta relativa a la raíz del repositorio, como migrations o db/migrations.",
+         "folder-label": "Carpeta de migraciones",
+         "heading": "Agrega los archivos a tu repositorio",
+-        "new-file": "archivo nuevo",
+         "next-github": "Cuando los archivos estén en la rama predeterminada, el siguiente pull request que cambie la carpeta de migraciones recibirá un comentario de revisión de Bytebase. Al fusionarlo, se despliega.",
+         "next-gitlab": "Cuando los archivos estén en la rama predeterminada, el siguiente merge request que cambie la carpeta de migraciones recibirá un comentario de revisión de Bytebase. Al fusionarlo, se despliega.",
+         "next-title": "Qué pasa después",
+diff --git a/frontend/src/locales/ja-JP.json b/frontend/src/locales/ja-JP.json
+index 5138b3d..9edf0d6 100644
+--- a/frontend/src/locales/ja-JP.json
++++ b/frontend/src/locales/ja-JP.json
+@@ -1341,7 +1341,6 @@
+       },
+       "external-url-description": "ワークフローはこのアドレスで Bytebase に接続します。手順は今すぐ進められます。ワークスペース管理者が設定すると、ワークフローファイルが完成します。",
+       "files": {
+-        "add-lines": "これらの行を追加",
+         "copy-off": "外部 URL が設定されるまでコピーできません",
+         "description": "ファイルにはデータベースとワークロード ID がすでに含まれています。そのままコピーしてください。",
+         "developers-github": "開発者向け: <code>{{file}}</code> のようなファイルをプルリクエストで追加してください。ファイル名はバージョン番号で始めます。番号のないファイルはスキップされます。",
+@@ -1350,7 +1349,6 @@
+         "folder-invalid": "リポジトリのルートからの相対パスを入力してください（例: migrations、db/migrations）。",
+         "folder-label": "マイグレーションフォルダー",
+         "heading": "ファイルをリポジトリに追加",
+-        "new-file": "新しいファイル",
+         "next-github": "ファイルがデフォルトブランチに入ると、次にマイグレーションフォルダーを変更するプルリクエストに Bytebase のレビューコメントが付きます。マージするとデプロイされます。",
+         "next-gitlab": "ファイルがデフォルトブランチに入ると、次にマイグレーションフォルダーを変更するマージリクエストに Bytebase のレビューコメントが付きます。マージするとデプロイされます。",
+         "next-title": "次に起こること",
+diff --git a/frontend/src/locales/vi-VN.json b/frontend/src/locales/vi-VN.json
+index 8476334..d3671a5 100644
+--- a/frontend/src/locales/vi-VN.json
++++ b/frontend/src/locales/vi-VN.json
+@@ -1341,7 +1341,6 @@
+       },
+       "external-url-description": "Workflow của bạn dùng địa chỉ này để kết nối Bytebase. Bạn có thể làm các bước ngay bây giờ. Các tệp workflow sẽ hoàn chỉnh khi quản trị viên workspace thiết lập địa chỉ này.",
+       "files": {
+-        "add-lines": "thêm các dòng này",
+         "copy-off": "Không thể sao chép cho đến khi External URL được thiết lập",
+         "description": "Các tệp đã chứa cơ sở dữ liệu và workload identity của bạn. Hãy sao chép nguyên văn.",
+         "developers-github": "Dành cho lập trình viên: thêm một tệp như <code>{{file}}</code> trong pull request. Tên tệp bắt đầu bằng số phiên bản. Workflow bỏ qua tệp không có số này.",
+@@ -1350,7 +1349,6 @@
+         "folder-invalid": "Nhập đường dẫn thư mục tính từ gốc repository, ví dụ migrations hoặc db/migrations.",
+         "folder-label": "Thư mục migration",
+         "heading": "Thêm các tệp vào repository của bạn",
+-        "new-file": "tệp mới",
+         "next-github": "Khi các tệp đã có trên nhánh mặc định, pull request tiếp theo thay đổi thư mục migration sẽ nhận bình luận review của Bytebase. Khi merge, thay đổi được triển khai.",
+         "next-gitlab": "Khi các tệp đã có trên nhánh mặc định, merge request tiếp theo thay đổi thư mục migration sẽ nhận bình luận review của Bytebase. Khi merge, thay đổi được triển khai.",
+         "next-title": "Điều gì xảy ra tiếp theo",
+diff --git a/frontend/src/locales/zh-CN.json b/frontend/src/locales/zh-CN.json
+index ea702d8..5392d1e 100644
+--- a/frontend/src/locales/zh-CN.json
++++ b/frontend/src/locales/zh-CN.json
+@@ -1341,7 +1341,6 @@
+       },
+       "external-url-description": "你的工作流通过此地址访问 Bytebase。你现在就可以完成这些步骤。工作区管理员设置该地址后，工作流文件即完整。",
+       "files": {
+-        "add-lines": "添加这些行",
+         "copy-off": "设置外部 URL 之前无法复制",
+         "description": "这些文件已包含你的数据库和工作负载身份。请原样复制。",
+         "developers-github": "开发者：在拉取请求中添加一个文件，例如 <code>{{file}}</code>。文件名以版本号开头。没有版本号的文件会被工作流跳过。",
+@@ -1350,7 +1349,6 @@
+         "folder-invalid": "请输入相对于仓库根目录的文件夹路径，例如 migrations 或 db/migrations。",
+         "folder-label": "迁移文件夹",
+         "heading": "将文件添加到你的仓库",
+-        "new-file": "新文件",
+         "next-github": "文件进入默认分支后，下一个修改迁移文件夹的拉取请求会收到 Bytebase 审核评论。合并后即部署。",
+         "next-gitlab": "文件进入默认分支后，下一个修改迁移文件夹的合并请求会收到 Bytebase 审核评论。合并后即部署。",
+         "next-title": "接下来会发生什么",
+diff --git a/frontend/src/routes/project/ProjectGitOpsPage.test.tsx b/frontend/src/routes/project/ProjectGitOpsPage.test.tsx
+index e878dde..51c0d31 100644
+--- a/frontend/src/routes/project/ProjectGitOpsPage.test.tsx
++++ b/frontend/src/routes/project/ProjectGitOpsPage.test.tsx
+@@ -668,6 +668,19 @@ describe("ProjectGitOpsPage", () => {
+     );
+   });
+ 
++  test("a file's header bar names its path and nothing else", async () => {
++    await openStep3(NEW_CI);
++    const headers = [
++      ...container.querySelectorAll('[data-slot="code-block-header"]'),
++    ].map((header) => header.firstElementChild?.textContent);
++    expect(headers).toEqual(["bytebase.gitlab-ci.yml", ".gitlab-ci.yml"]);
++    for (const header of container.querySelectorAll(
++      '[data-slot="code-block-header"]'
++    )) {
++      expect(header.querySelectorAll("span")).toHaveLength(1);
++    }
++  });
++
+   test("the scope line shows on every step", async () => {
+     setProject({
+       groups: 1,
+diff --git a/frontend/src/routes/project/gitops-setup/WorkflowFilesStep.tsx b/frontend/src/routes/project/gitops-setup/WorkflowFilesStep.tsx
+index 14cf3ca..2a600bf 100644
+--- a/frontend/src/routes/project/gitops-setup/WorkflowFilesStep.tsx
++++ b/frontend/src/routes/project/gitops-setup/WorkflowFilesStep.tsx
+@@ -140,7 +140,6 @@ export function WorkflowFilesStep({
+         <FileBlock
+           key={file.path}
+           path={file.path}
+-          hint={t("gitops.setup.files.new-file")}
+           content={file.content}
+           copyOff={urlMissing}
+         />
+@@ -148,7 +147,6 @@ export function WorkflowFilesStep({
+       {isGitLab && (
+         <FileBlock
+           path=".gitlab-ci.yml"
+-          hint={t("gitops.setup.files.add-lines")}
+           content={GITLAB_INCLUDE}
+           copyOff={false}
+         />
+@@ -195,18 +193,16 @@ function PlaceholderMark({
+   );
+ }
+ 
+-// One file: its path and a hint in a header bar with a copy button, then the
++// One file: its path in a header bar with a copy button, then the
+ // content, with the External URL placeholder marked. A long file shows its
+ // first lines until the owner asks for all of them. Copy takes the whole file
+ // either way.
+ function FileBlock({
+   path,
+-  hint,
+   content,
+   copyOff,
+ }: {
+   readonly path: string;
+-  readonly hint: string;
+   readonly content: string;
+   readonly copyOff: boolean;
+ }) {
+@@ -229,11 +225,8 @@ function FileBlock({
+         data-slot="code-block-header"
+         className="flex items-center justify-between gap-x-2 border-b border-block-border bg-background py-1.5 pr-2 pl-3"
+       >
+-        <span className="flex min-w-0 flex-wrap items-baseline gap-x-1.5">
+-          <span className="font-mono text-xs wrap-anywhere text-main">
+-            {path}
+-          </span>
+-          <span className="text-xs text-control-light">{hint}</span>
++        <span className="min-w-0 font-mono text-xs wrap-anywhere text-main">
++          {path}
+         </span>
+         <div className="shrink-0">
+           <CopyButton
