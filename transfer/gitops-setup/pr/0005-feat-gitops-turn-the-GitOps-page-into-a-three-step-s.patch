@@ -1,0 +1,3743 @@
+From ac31514376beef21fbba5e987432c77556ad12e1 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Thu, 12 Nov 2026 03:10:48 +0000
+Subject: [PATCH 5/5] feat(gitops): turn the GitOps page into a three-step
+ setup (BYT-10423)
+
+The page opens with the outcome in one sentence, a line that says setup
+writes files for GitHub Actions and GitLab CI, and three steps:
+Databases, Workload identity and Workflow files. The step row sits on
+top and Back and Continue sit in a sticky footer. Nothing is saved.
+
+- Databases: a database group (recommended) or databases with an
+  environment, and the deploy order by environment.
+- Workload identity: pick or create one. The Create dialog offers
+  GitHub Actions and GitLab CI only, closes after Create and picks the
+  new identity. An identity for another OIDC provider cannot be picked,
+  and one with no role blocks Continue with a link to Members. The git
+  provider's logo shows before its name.
+- Workflow files: the migration folder (editable), the repository when
+  the identity names one, and every file for the identity's git
+  provider. A file longer than 12 lines shows its first 12 lines until
+  "Show all N lines". Copy always takes the whole file.
+
+A lone group, database or identity is picked when the page opens. An
+unset External URL does not block the steps: the alert shows on every
+step, the files show {EXTERNAL_URL} marked, and copy is off.
+
+Removed: the overview, the checklist, the GitHub/GitLab tabs, the
+self-hosted runner switch, the test section, the old generators, the
+workflow image and the strings only they used.
+---
+ frontend/src/assets/gitops-workflow.svg       | 165 ---
+ frontend/src/locales/en-US.json               | 108 +-
+ frontend/src/locales/es-ES.json               | 108 +-
+ frontend/src/locales/ja-JP.json               | 108 +-
+ frontend/src/locales/vi-VN.json               | 108 +-
+ frontend/src/locales/zh-CN.json               | 108 +-
+ .../routes/project/ProjectGitOpsPage.test.tsx | 746 ++++++++++++++
+ .../src/routes/project/ProjectGitOpsPage.tsx  | 962 ++++++------------
+ .../project/gitops-setup/DatabasesStep.tsx    | 202 ++++
+ .../project/gitops-setup/ProviderLogo.tsx     |  18 +
+ .../gitops-setup/WorkflowFilesStep.tsx        | 279 +++++
+ .../gitops-setup/WorkloadIdentityStep.tsx     | 177 ++++
+ .../routes/project/gitops-setup/identity.ts   |  78 ++
+ .../routes/project/gitopsWorkflowYaml.test.ts |  55 -
+ .../src/routes/project/gitopsWorkflowYaml.ts  | 231 -----
+ 15 files changed, 2193 insertions(+), 1260 deletions(-)
+ delete mode 100644 frontend/src/assets/gitops-workflow.svg
+ create mode 100644 frontend/src/routes/project/ProjectGitOpsPage.test.tsx
+ create mode 100644 frontend/src/routes/project/gitops-setup/DatabasesStep.tsx
+ create mode 100644 frontend/src/routes/project/gitops-setup/ProviderLogo.tsx
+ create mode 100644 frontend/src/routes/project/gitops-setup/WorkflowFilesStep.tsx
+ create mode 100644 frontend/src/routes/project/gitops-setup/WorkloadIdentityStep.tsx
+ create mode 100644 frontend/src/routes/project/gitops-setup/identity.ts
+
+diff --git a/frontend/src/assets/gitops-workflow.svg b/frontend/src/assets/gitops-workflow.svg
+deleted file mode 100644
+index 9c6cfdb..0000000
+--- a/frontend/src/assets/gitops-workflow.svg
++++ /dev/null
+@@ -1,165 +0,0 @@
+-<?xml version="1.0" encoding="utf-8"?>
+-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1020 290" fill="none">
+-  <style>
+-    .phase { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; }
+-    .title { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 13px; font-weight: 600; }
+-    .desc { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 11px; fill: #6B7280; }
+-    .badge { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 9px; font-weight: 700; letter-spacing: 0.05em; }
+-    .trans { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 9px; font-weight: 600; }
+-    .db-label { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 10px; font-weight: 500; fill: #374151; }
+-    .connector { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 9px; fill: #9CA3AF; }
+-  </style>
+-
+-  
+-  <rect width="1020" height="290" rx="12" fill="#FAFAFA" stroke="#E5E7EB" stroke-width="1"/>
+-
+-  
+-  
+-  
+-
+-  <text x="98" y="28" text-anchor="middle" class="phase" fill="#374151">DEVELOP</text>
+-
+-  <g transform="translate(18, 42)">
+-    <rect x="0" y="0" width="160" height="68" rx="8" fill="white" stroke="#E5E7EB" stroke-width="1.5"/>
+-    
+-    <g transform="translate(12, 12)">
+-      <svg width="16" height="16" viewBox="0 0 26 26">
+-        <path fill-rule="evenodd" clip-rule="evenodd" d="M13 0.324219C5.85 0.324219 0 6.17422 0 13.3242C0 19.093 3.7375 23.968 8.85625 25.6742C9.50625 25.7555 9.75 25.4305 9.75 25.0242C9.75 24.6992 9.75 23.8867 9.75 22.8305C6.09375 23.643 5.3625 21.1242 5.3625 21.1242C4.79375 19.6617 3.9 19.2555 3.9 19.2555C2.68125 18.443 3.98125 18.443 3.98125 18.443C5.28125 18.5242 6.0125 19.743 6.0125 19.743C7.15 21.693 9.01875 21.1242 9.83125 20.7992C9.9125 19.9867 10.3188 19.418 10.6438 19.093C7.71875 18.768 4.7125 17.6305 4.7125 12.6742C4.7125 11.293 5.2 10.0742 6.0125 9.18047C5.85 8.85547 5.44375 7.55547 6.175 5.76797C6.175 5.76797 7.23125 5.44297 9.75 7.06797C10.8062 6.74297 11.8625 6.66172 13 6.66172C14.1375 6.66172 15.1938 6.82422 16.25 7.06797C18.7687 5.36172 19.825 5.68672 19.825 5.68672C20.5562 7.47422 20.0688 8.77422 19.9875 9.09922C20.8 9.99297 21.2875 11.1305 21.2875 12.593C21.2875 17.5492 18.2812 18.6867 15.3562 19.0117C15.8438 19.418 16.25 20.2305 16.25 21.4492C16.25 23.1555 16.25 24.618 16.25 25.0242C16.25 25.3492 16.4937 25.7555 17.1438 25.6742C22.2625 23.968 26 19.093 26 13.3242C26 6.17422 20.15 0.324219 13 0.324219Z" fill="#24292f"/>
+-      </svg>
+-    </g>
+-    <text x="36" y="24" class="badge" fill="#24292f">GITHUB</text>
+-    <text x="10" y="44" class="title" fill="#111827">Write SQL files</text>
+-    <text x="10" y="60" class="desc">migration or schema</text>
+-  </g>
+-
+-  
+-  
+-  
+-
+-  <line x1="178" y1="76" x2="294" y2="76" stroke="#D1D5DB" stroke-width="1.5"/>
+-  <polygon points="290,71 300,76 290,81" fill="#D1D5DB"/>
+-  <rect x="200" y="82" width="72" height="18" rx="9" fill="#EEF2FF" stroke="#C7D2FE" stroke-width="1"/>
+-  <text x="236" y="94" text-anchor="middle" class="trans" fill="#4F46E5">PR created</text>
+-
+-  
+-  
+-  
+-
+-  <text x="437" y="28" text-anchor="middle" class="phase" fill="#4F46E5">CI</text>
+-
+-  <rect x="302" y="38" width="270" height="160" rx="10" fill="white" stroke="#C7D2FE" stroke-width="1.5" stroke-dasharray="6 3"/>
+-
+-  
+-  <g transform="translate(316, 52)">
+-    <rect x="0" y="0" width="242" height="48" rx="8" fill="#F9FAFB" stroke="#E5E7EB" stroke-width="1"/>
+-    <g transform="translate(12, 14)">
+-      <svg width="16" height="16" viewBox="0 0 26 26">
+-        <path fill-rule="evenodd" clip-rule="evenodd" d="M13 0.324219C5.85 0.324219 0 6.17422 0 13.3242C0 19.093 3.7375 23.968 8.85625 25.6742C9.50625 25.7555 9.75 25.4305 9.75 25.0242C9.75 24.6992 9.75 23.8867 9.75 22.8305C6.09375 23.643 5.3625 21.1242 5.3625 21.1242C4.79375 19.6617 3.9 19.2555 3.9 19.2555C2.68125 18.443 3.98125 18.443 3.98125 18.443C5.28125 18.5242 6.0125 19.743 6.0125 19.743C7.15 21.693 9.01875 21.1242 9.83125 20.7992C9.9125 19.9867 10.3188 19.418 10.6438 19.093C7.71875 18.768 4.7125 17.6305 4.7125 12.6742C4.7125 11.293 5.2 10.0742 6.0125 9.18047C5.85 8.85547 5.44375 7.55547 6.175 5.76797C6.175 5.76797 7.23125 5.44297 9.75 7.06797C10.8062 6.74297 11.8625 6.66172 13 6.66172C14.1375 6.66172 15.1938 6.82422 16.25 7.06797C18.7687 5.36172 19.825 5.68672 19.825 5.68672C20.5562 7.47422 20.0688 8.77422 19.9875 9.09922C20.8 9.99297 21.2875 11.1305 21.2875 12.593C21.2875 17.5492 18.2812 18.6867 15.3562 19.0117C15.8438 19.418 16.25 20.2305 16.25 21.4492C16.25 23.1555 16.25 24.618 16.25 25.0242C16.25 25.3492 16.4937 25.7555 17.1438 25.6742C22.2625 23.968 26 19.093 26 13.3242C26 6.17422 20.15 0.324219 13 0.324219Z" fill="#24292f"/>
+-      </svg>
+-    </g>
+-    <text x="36" y="24" class="title" fill="#111827" font-size="12">Create Pull Request</text>
+-    <text x="36" y="39" class="desc">Open PR with SQL changes</text>
+-  </g>
+-
+-  
+-  <line x1="437" y1="100" x2="437" y2="130" stroke="#D1D5DB" stroke-width="1.5"/>
+-  <polygon points="432,127 437,136 442,127" fill="#D1D5DB"/>
+-  <text x="457" y="120" class="connector">triggers</text>
+-
+-  
+-  <g transform="translate(316, 138)">
+-    <rect x="0" y="0" width="242" height="48" rx="8" fill="#EEF2FF" stroke="#C7D2FE" stroke-width="1"/>
+-    <g transform="translate(10, 10)">
+-      <svg width="22" height="22" viewBox="0 0 160 160">
+-        <path d="M46.1905 152.505C29.9046 144.91 16.6497 132.054 8.56169 116.008C0.473633 99.9615 -1.97652 81.6593 1.60602 64.0506C5.18857 46.4418 14.5952 30.5519 28.3101 18.9414C42.025 7.33087 59.2495 0.675864 77.208 0.0487342C95.1666 -0.578395 112.813 4.85888 127.305 15.4844C141.796 26.11 152.288 41.3049 157.09 58.6209C161.893 75.9369 160.725 94.3654 153.776 110.937C146.827 127.508 134.501 141.258 118.785 149.97L80 80L46.1905 152.505Z" fill="#111827"/>
+-        <path d="M118.708 150.012C107.686 156.106 95.3806 159.511 82.7937 159.951C70.2068 160.391 57.694 157.853 46.2734 152.543L80 80L118.708 150.012Z" fill="white"/>
+-        <path d="M35 47.0375L125.88 47.0375L125.88 85.4375C125.88 95.4215 123.533 102.931 118.84 107.965C114.232 113.086 108.259 115.646 100.92 115.646C96.2267 115.646 92.1307 114.494 88.632 112.19C85.2187 109.971 82.616 106.899 80.824 102.974C79.2027 107.24 76.6427 110.611 73.144 113.086C69.6453 115.646 65.5067 116.926 60.728 116.926C52.7067 116.926 46.392 114.366 41.784 109.246C37.2613 104.126 35 96.7442 35 87.1015L35 47.0375ZM109.112 65.2135L89.4 65.2135V85.3095C89.4 88.9788 90.2107 91.7948 91.832 93.7575C93.5387 95.8055 96.0133 96.8295 99.256 96.8295C102.157 96.8295 104.504 95.8482 106.296 93.8855C108.173 92.0082 109.112 89.1495 109.112 85.3095L109.112 65.2135ZM72.504 65.2135H51.768V86.5895C51.768 90.4295 52.664 93.2882 54.456 95.1655C56.248 97.1282 58.808 98.1095 62.136 98.1095C65.2933 98.1095 67.8107 97.1282 69.688 95.1655C71.5653 93.2882 72.504 90.4295 72.504 86.5895V65.2135Z" fill="white"/>
+-      </svg>
+-    </g>
+-    <text x="40" y="24" class="title" fill="#312E81" font-size="12">SQL Review</text>
+-    <text x="40" y="39" class="desc" fill="#4338CA">Check syntax, lint, enforce policy</text>
+-  </g>
+-
+-  
+-  <path d="M316 162 L286 162 L286 88 L316 88" stroke="#D1D5DB" stroke-width="1.5" fill="none" stroke-dasharray="4 2"/>
+-  <polygon points="313,83 323,88 313,93" fill="#D1D5DB"/>
+-  <text x="284" y="132" text-anchor="end" class="connector" font-size="8">post</text>
+-  <text x="284" y="142" text-anchor="end" class="connector" font-size="8">review</text>
+-
+-  
+-  
+-  
+-
+-  <line x1="572" y1="76" x2="706" y2="76" stroke="#D1D5DB" stroke-width="1.5"/>
+-  <polygon points="702,71 712,76 702,81" fill="#D1D5DB"/>
+-  <rect x="597" y="82" width="80" height="30" rx="9" fill="#DCFCE7" stroke="#86EFAC" stroke-width="1"/>
+-  <text x="637" y="95" text-anchor="middle" class="trans" fill="#166534">Trigger</text>
+-  <text x="637" y="107" text-anchor="middle" style="font-family: -apple-system, BlinkMacSystemFont, &apos;Segoe UI&apos;, Roboto, sans-serif; font-size: 7px; fill: #4B5563;">merge, cron, etc.</text>
+-
+-  
+-  
+-  
+-
+-  <text x="858" y="28" text-anchor="middle" class="phase" fill="#059669">CD</text>
+-
+-  <rect x="714" y="38" width="288" height="242" rx="10" fill="white" stroke="#A7F3D0" stroke-width="1.5" stroke-dasharray="6 3"/>
+-
+-  
+-  <g transform="translate(728, 52)">
+-    <rect x="0" y="0" width="260" height="48" rx="8" fill="#F9FAFB" stroke="#E5E7EB" stroke-width="1"/>
+-    <g transform="translate(12, 14)">
+-      <svg width="16" height="16" viewBox="0 0 26 26">
+-        <path fill-rule="evenodd" clip-rule="evenodd" d="M13 0.324219C5.85 0.324219 0 6.17422 0 13.3242C0 19.093 3.7375 23.968 8.85625 25.6742C9.50625 25.7555 9.75 25.4305 9.75 25.0242C9.75 24.6992 9.75 23.8867 9.75 22.8305C6.09375 23.643 5.3625 21.1242 5.3625 21.1242C4.79375 19.6617 3.9 19.2555 3.9 19.2555C2.68125 18.443 3.98125 18.443 3.98125 18.443C5.28125 18.5242 6.0125 19.743 6.0125 19.743C7.15 21.693 9.01875 21.1242 9.83125 20.7992C9.9125 19.9867 10.3188 19.418 10.6438 19.093C7.71875 18.768 4.7125 17.6305 4.7125 12.6742C4.7125 11.293 5.2 10.0742 6.0125 9.18047C5.85 8.85547 5.44375 7.55547 6.175 5.76797C6.175 5.76797 7.23125 5.44297 9.75 7.06797C10.8062 6.74297 11.8625 6.66172 13 6.66172C14.1375 6.66172 15.1938 6.82422 16.25 7.06797C18.7687 5.36172 19.825 5.68672 19.825 5.68672C20.5562 7.47422 20.0688 8.77422 19.9875 9.09922C20.8 9.99297 21.2875 11.1305 21.2875 12.593C21.2875 17.5492 18.2812 18.6867 15.3562 19.0117C15.8438 19.418 16.25 20.2305 16.25 21.4492C16.25 23.1555 16.25 24.618 16.25 25.0242C16.25 25.3492 16.4937 25.7555 17.1438 25.6742C22.2625 23.968 26 19.093 26 13.3242C26 6.17422 20.15 0.324219 13 0.324219Z" fill="#24292f"/>
+-      </svg>
+-    </g>
+-    <text x="36" y="24" class="title" fill="#111827" font-size="12">Run release workflow</text>
+-    <text x="36" y="39" class="desc">Call Bytebase API</text>
+-  </g>
+-
+-  
+-  <line x1="858" y1="100" x2="858" y2="130" stroke="#D1D5DB" stroke-width="1.5"/>
+-  <polygon points="853,127 858,136 863,127" fill="#D1D5DB"/>
+-  <text x="878" y="120" class="connector">triggers</text>
+-
+-  
+-  <g transform="translate(728, 138)">
+-    <rect x="0" y="0" width="260" height="48" rx="8" fill="#EEF2FF" stroke="#C7D2FE" stroke-width="1"/>
+-    <g transform="translate(10, 10)">
+-      <svg width="22" height="22" viewBox="0 0 160 160">
+-        <path d="M46.1905 152.505C29.9046 144.91 16.6497 132.054 8.56169 116.008C0.473633 99.9615 -1.97652 81.6593 1.60602 64.0506C5.18857 46.4418 14.5952 30.5519 28.3101 18.9414C42.025 7.33087 59.2495 0.675864 77.208 0.0487342C95.1666 -0.578395 112.813 4.85888 127.305 15.4844C141.796 26.11 152.288 41.3049 157.09 58.6209C161.893 75.9369 160.725 94.3654 153.776 110.937C146.827 127.508 134.501 141.258 118.785 149.97L80 80L46.1905 152.505Z" fill="#111827"/>
+-        <path d="M118.708 150.012C107.686 156.106 95.3806 159.511 82.7937 159.951C70.2068 160.391 57.694 157.853 46.2734 152.543L80 80L118.708 150.012Z" fill="white"/>
+-        <path d="M35 47.0375L125.88 47.0375L125.88 85.4375C125.88 95.4215 123.533 102.931 118.84 107.965C114.232 113.086 108.259 115.646 100.92 115.646C96.2267 115.646 92.1307 114.494 88.632 112.19C85.2187 109.971 82.616 106.899 80.824 102.974C79.2027 107.24 76.6427 110.611 73.144 113.086C69.6453 115.646 65.5067 116.926 60.728 116.926C52.7067 116.926 46.392 114.366 41.784 109.246C37.2613 104.126 35 96.7442 35 87.1015L35 47.0375ZM109.112 65.2135L89.4 65.2135V85.3095C89.4 88.9788 90.2107 91.7948 91.832 93.7575C93.5387 95.8055 96.0133 96.8295 99.256 96.8295C102.157 96.8295 104.504 95.8482 106.296 93.8855C108.173 92.0082 109.112 89.1495 109.112 85.3095L109.112 65.2135ZM72.504 65.2135H51.768V86.5895C51.768 90.4295 52.664 93.2882 54.456 95.1655C56.248 97.1282 58.808 98.1095 62.136 98.1095C65.2933 98.1095 67.8107 97.1282 69.688 95.1655C71.5653 93.2882 72.504 90.4295 72.504 86.5895V65.2135Z" fill="white"/>
+-      </svg>
+-    </g>
+-    <text x="40" y="24" class="title" fill="#312E81" font-size="12">Create Release</text>
+-    <text x="40" y="39" class="desc" fill="#4338CA">Plan, rollout, and deploy</text>
+-  </g>
+-
+-  
+-  <line x1="858" y1="186" x2="858" y2="216" stroke="#D1D5DB" stroke-width="1.5"/>
+-  <polygon points="853,213 858,222 863,213" fill="#D1D5DB"/>
+-  <text x="878" y="208" class="connector">apply</text>
+-
+-  
+-  <g transform="translate(728, 224)">
+-    <rect x="0" y="0" width="260" height="46" rx="8" fill="#F9FAFB" stroke="#D1D5DB" stroke-width="1"/>
+-
+-    
+-    <g transform="translate(20, 8)">
+-      <rect x="0" y="0" width="100" height="30" rx="6" fill="white" stroke="#E5E7EB" stroke-width="1"/>
+-      <path d="M14,11 C14,8.5 18,6 24,6 C30,6 34,8.5 34,11" stroke="#9CA3AF" stroke-width="0.8" fill="#E5E7EB"/>
+-      <path d="M14,11 L14,20 C14,22.5 18,25 24,25 C30,25 34,22.5 34,20 L34,11" stroke="#9CA3AF" stroke-width="0.8" fill="#F3F4F6"/>
+-      <path d="M14,11 C14,13.5 18,16 24,16 C30,16 34,13.5 34,11" stroke="#9CA3AF" stroke-width="0.8" fill="none"/>
+-      <text x="44" y="19" class="db-label">Test</text>
+-    </g>
+-
+-    
+-    <g transform="translate(140, 8)">
+-      <rect x="0" y="0" width="100" height="30" rx="6" fill="white" stroke="#E5E7EB" stroke-width="1"/>
+-      <path d="M14,11 C14,8.5 18,6 24,6 C30,6 34,8.5 34,11" stroke="#9CA3AF" stroke-width="0.8" fill="#E5E7EB"/>
+-      <path d="M14,11 L14,20 C14,22.5 18,25 24,25 C30,25 34,22.5 34,20 L34,11" stroke="#9CA3AF" stroke-width="0.8" fill="#F3F4F6"/>
+-      <path d="M14,11 C14,13.5 18,16 24,16 C30,16 34,13.5 34,11" stroke="#9CA3AF" stroke-width="0.8" fill="none"/>
+-      <text x="44" y="19" class="db-label">Prod</text>
+-    </g>
+-  </g>
+-</svg>
+\ No newline at end of file
+diff --git a/frontend/src/locales/en-US.json b/frontend/src/locales/en-US.json
+index fdde2af..4ea3a25 100644
+--- a/frontend/src/locales/en-US.json
++++ b/frontend/src/locales/en-US.json
+@@ -1303,22 +1303,30 @@
+   },
+   "gitops": {
+     "back-to-releases": "Back to Releases",
+-    "checklist": {
+-      "database-group-recommendation": "For databases sharing the same schema, a database group lets you migrate them together in one change. Define the group once and reuse it across migrations without picking individual databases every time.",
+-      "external-url": "External URL",
+-      "target-databases": "Target Databases",
+-      "title": "Checks before we start",
+-      "wif-notice-suffix": "to set up GitOps using a service account.",
+-      "wif-notice-text": "Workload Identity Federation is currently supported for GitHub and GitLab only. For other VCS, refer to the tutorials for",
+-      "workload-identity": "Workload Identity"
+-    },
+-    "documentation": "View Documentation",
+-    "overview": {
+-      "description": "Bytebase GitOps lets you manage Database as Code by integrating database schema changes into your CI/CD pipeline.",
+-      "description-git": "Your database schema lives in Git alongside your application code. Pull requests trigger SQL review, and merging to the target branch automatically creates rollouts.",
+-      "title": "What is GitOps"
+-    },
+     "setup": {
++      "continue": "Continue",
++      "databases": {
++        "create-group": "Create a database group",
++        "databases-hint": "These databases are written into the workflow files. To add one later, edit the files.",
++        "databases-label": "Databases",
++        "databases-placeholder": "Select databases",
++        "databases-tab": "Databases",
++        "deploy-order-hint": "Changes deploy one environment at a time, in this order.",
++        "description": "The workflow reviews and deploys every migration file against these databases.",
++        "group-hint": "A database that joins this group later is deployed too, with no change to the workflow files.",
++        "group-label": "Database group",
++        "group-matches-none": "This group matches no database yet, so there is nothing to deploy.",
++        "group-placeholder": "Select a database group",
++        "group-tab": "Database group",
++        "no-group-description": "A group is recommended because a database that joins it later is deployed too, with no change to the workflow files.",
++        "no-group-title": "This project has no database group",
++        "none-pickable-description": "Every database in this project has no environment, so none has a place in the deploy order. Assign an environment to a database to pick it.",
++        "none-pickable-title": "No database can be picked",
++        "question": "Which databases should GitOps deploy to?",
++        "recommended": "Recommended",
++        "view-databases": "View databases",
++        "view-group": "View group"
++      },
+       "deploy-order": {
+         "database-count_one": "{{count}} database",
+         "database-count_other": "{{count}} databases",
+@@ -1330,25 +1338,57 @@
+         "unassigned-description_other": "They have no environment, so the deploy skips them without an error. Assign an environment to include them.",
+         "unassigned-title_one": "{{count}} database will not be deployed",
+         "unassigned-title_other": "{{count}} databases will not be deployed"
+-      }
+-    },
+-    "test-setup": {
+-      "description": "Verify the workflow is working end-to-end with a sample migration file.",
+-      "naming-convention": "Migration files are applied in lexicographic order. Use a timestamp or sequence prefix, e.g. 20240101000000_create_table.sql. Append _ddl or _dml to indicate the change type.",
+-      "step-create-branch": "Create a new branch, add the file above, and open a pull request targeting {{branch}}.",
+-      "step-merge": "Once the review passes, merge the PR. Bytebase will automatically create a rollout and deploy to the target environments.",
+-      "step-sql-review": "SQL Review runs automatically on the pull request and posts review comments.",
+-      "title": "Test your first GitOps migration"
+-    },
+-    "workflow": {
+-      "description": "Copy the workflow files into your repository to automate SQL review and database rollouts.",
+-      "file-hint": "Save as {{filePath}} in your repository {{repository}}",
+-      "provider-not-match": "The selected workload identity only works for {{provider}}.",
+-      "self-hosted-runner": "Self-hosted runner",
+-      "title": "Workflow file generation"
+-    },
+-    "workload-identity": {
+-      "select-placeholder": "Select a workload identity"
++      },
++      "external-url-description": "Your workflow uses this address to reach Bytebase. You can go through the steps now. The workflow files are complete once a workspace admin sets it.",
++      "files": {
++        "copy-off": "Copy is off until the External URL is set",
++        "description": "The files already contain your databases and your workload identity. Copy them as they are.",
++        "developers-github": "For developers: add a file such as <code>{{file}}</code> in a pull request. File names start with a version number. The workflow skips a file without one.",
++        "developers-gitlab": "For developers: add a file such as <code>{{file}}</code> in a merge request. File names start with a version number. The workflow skips a file without one.",
++        "folder-hint": "The workflow reviews and deploys the SQL files in this folder.",
++        "folder-invalid": "Enter a folder path relative to the repository root, such as migrations or db/migrations.",
++        "folder-label": "Migration folder",
++        "heading": "Add the files to your repository",
++        "next-github": "Once the files are on the default branch, the next pull request that changes the migration folder gets a Bytebase review comment. Merging it deploys.",
++        "next-gitlab": "Once the files are on the default branch, the next merge request that changes the migration folder gets a Bytebase review comment. Merging it deploys.",
++        "next-title": "What happens next",
++        "repository": "Repository",
++        "show-all": "Show all {{lines}} lines",
++        "url-missing": "The files show <code>{{placeholder}}</code> where the Bytebase address goes. Copy is off until the External URL is set, because a workflow with no address cannot reach Bytebase."
++      },
++      "identity": {
++        "create": "Create workload identity",
++        "description": "Your workflow signs in to Bytebase as this identity, so no secret is stored in the repository.",
++        "every-repository": "Every repository of {{owner}}",
++        "git-provider": "Git provider",
++        "label": "Workload identity",
++        "no-role-description": "Its workflow can sign in, but Bytebase will refuse the review and the deploy. Grant it the GitOps Service Agent role on the Members page.",
++        "no-role-title": "This identity has no role that allows GitOps",
++        "none": "This project has no workload identity yet.",
++        "open-members": "Open Members",
++        "other-provider": "Other OIDC. Setup has no workflow files for it.",
++        "placeholder": "Select a workload identity",
++        "question": "Which workload identity does your workflow sign in as?",
++        "read-from": "Read from this identity",
++        "repositories": "Repositories that can sign in",
++        "role": "Role in this project"
++      },
++      "no-database": {
++        "description": "GitOps deploys to the databases of this project. Add or transfer a database to this project first.",
++        "title": "This project has no database"
++      },
++      "no-identity": {
++        "description": "Your workflow signs in to Bytebase as a workload identity of this project. Ask a project owner to create one.",
++        "title": "This project has no workload identity"
++      },
++      "outcome": "Every pull request that changes the migration folder gets a Bytebase review. Merging it deploys.",
++      "scope": "Setup writes workflow files for GitHub Actions and GitLab CI. For other CI/CD platforms, see the <docs>GitOps docs</docs>.",
++      "steps": {
++        "databases": "Databases",
++        "workflow-files": "Workflow files",
++        "workload-identity": "Workload identity"
++      },
++      "title": "GitOps"
+     }
+   },
+   "identity-provider": {
+diff --git a/frontend/src/locales/es-ES.json b/frontend/src/locales/es-ES.json
+index ec30938..67df450 100644
+--- a/frontend/src/locales/es-ES.json
++++ b/frontend/src/locales/es-ES.json
+@@ -1303,22 +1303,30 @@
+   },
+   "gitops": {
+     "back-to-releases": "Volver a Lanzamientos",
+-    "checklist": {
+-      "database-group-recommendation": "Para bases de datos con el mismo esquema, un grupo de bases de datos permite migrarlas juntas en un solo cambio. Defina el grupo una vez y reutilícelo en las migraciones sin tener que seleccionar bases de datos individuales cada vez.",
+-      "external-url": "URL externa",
+-      "target-databases": "Bases de datos de destino",
+-      "title": "Verificaciones antes de comenzar",
+-      "wif-notice-suffix": "para configurar GitOps con una cuenta de servicio.",
+-      "wif-notice-text": "Workload Identity Federation actualmente solo es compatible con GitHub y GitLab. Para otros VCS, consulte los tutoriales de",
+-      "workload-identity": "Identidad de carga de trabajo"
+-    },
+-    "documentation": "Ver documentación",
+-    "overview": {
+-      "description": "Bytebase GitOps le permite gestionar Database as Code integrando los cambios de esquema de base de datos en su pipeline de CI/CD.",
+-      "description-git": "El esquema de su base de datos se almacena en Git junto con el código de su aplicación. Las pull requests activan la revisión de SQL, y la fusión en la rama de destino crea automáticamente los despliegues.",
+-      "title": "Qué es GitOps"
+-    },
+     "setup": {
++      "continue": "Continuar",
++      "databases": {
++        "create-group": "Crear un grupo de bases de datos",
++        "databases-hint": "Estas bases de datos se escriben en los archivos del flujo de trabajo. Para agregar una después, edita los archivos.",
++        "databases-label": "Bases de datos",
++        "databases-placeholder": "Selecciona bases de datos",
++        "databases-tab": "Bases de datos",
++        "deploy-order-hint": "Los cambios se despliegan un entorno a la vez, en este orden.",
++        "description": "El flujo de trabajo revisa y despliega cada archivo de migración en estas bases de datos.",
++        "group-hint": "Una base de datos que se una a este grupo después también se despliega, sin cambiar los archivos del flujo de trabajo.",
++        "group-label": "Grupo de bases de datos",
++        "group-matches-none": "Este grupo todavía no coincide con ninguna base de datos, así que no hay nada que desplegar.",
++        "group-placeholder": "Selecciona un grupo de bases de datos",
++        "group-tab": "Grupo de bases de datos",
++        "no-group-description": "Se recomienda un grupo porque una base de datos que se una después también se despliega, sin cambiar los archivos del flujo de trabajo.",
++        "no-group-title": "Este proyecto no tiene grupos de bases de datos",
++        "none-pickable-description": "Ninguna base de datos de este proyecto tiene entorno, así que ninguna tiene lugar en el orden de despliegue. Asigna un entorno a una base de datos para elegirla.",
++        "none-pickable-title": "No se puede elegir ninguna base de datos",
++        "question": "¿En qué bases de datos debe desplegar GitOps?",
++        "recommended": "Recomendado",
++        "view-databases": "Ver bases de datos",
++        "view-group": "Ver grupo"
++      },
+       "deploy-order": {
+         "database-count_one": "{{count}} base de datos",
+         "database-count_other": "{{count}} bases de datos",
+@@ -1330,25 +1338,57 @@
+         "unassigned-description_other": "No tienen entorno, así que el despliegue las omite sin error. Asígnales un entorno para incluirlas.",
+         "unassigned-title_one": "{{count}} base de datos no se desplegará",
+         "unassigned-title_other": "{{count}} bases de datos no se desplegarán"
+-      }
+-    },
+-    "test-setup": {
+-      "description": "Verifique que el flujo de trabajo funciona de extremo a extremo con un archivo de migración de ejemplo.",
+-      "naming-convention": "Los archivos de migración se aplican en orden lexicográfico. Use un prefijo de marca de tiempo o secuencia, p. ej. 20240101000000_create_table.sql. Agregue _ddl o _dml para indicar el tipo de cambio.",
+-      "step-create-branch": "Cree una nueva rama, agregue el archivo anterior y abra una pull request dirigida a {{branch}}.",
+-      "step-merge": "Una vez que la revisión pase, fusione el PR. Bytebase creará automáticamente un despliegue y lo implementará en los entornos de destino.",
+-      "step-sql-review": "SQL Review se ejecuta automáticamente en la pull request y publica comentarios de revisión.",
+-      "title": "Pruebe su primera migración GitOps"
+-    },
+-    "workflow": {
+-      "description": "Copie los archivos de flujo de trabajo en su repositorio para automatizar la revisión de SQL y los despliegues de base de datos.",
+-      "file-hint": "Guardar como {{filePath}} en su repositorio {{repository}}",
+-      "provider-not-match": "La workload identity seleccionada solo funciona para {{provider}}.",
+-      "self-hosted-runner": "Runner self-hosted",
+-      "title": "Generación de archivo de flujo de trabajo"
+-    },
+-    "workload-identity": {
+-      "select-placeholder": "Seleccionar una identidad de carga de trabajo"
++      },
++      "external-url-description": "Tu flujo de trabajo usa esta dirección para conectarse a Bytebase. Ya puedes seguir los pasos. Los archivos del flujo de trabajo estarán completos cuando un administrador del espacio de trabajo la configure.",
++      "files": {
++        "copy-off": "Copiar está desactivado hasta que se configure la URL externa",
++        "description": "Los archivos ya contienen tus bases de datos y tu identidad de carga de trabajo. Cópialos tal como están.",
++        "developers-github": "Para desarrolladores: agrega un archivo como <code>{{file}}</code> en un pull request. Los nombres de archivo empiezan con un número de versión. El flujo de trabajo omite un archivo sin él.",
++        "developers-gitlab": "Para desarrolladores: agrega un archivo como <code>{{file}}</code> en un merge request. Los nombres de archivo empiezan con un número de versión. El flujo de trabajo omite un archivo sin él.",
++        "folder-hint": "El flujo de trabajo revisa y despliega los archivos SQL de esta carpeta.",
++        "folder-invalid": "Introduce una ruta de carpeta relativa a la raíz del repositorio, como migrations o db/migrations.",
++        "folder-label": "Carpeta de migraciones",
++        "heading": "Agrega los archivos a tu repositorio",
++        "next-github": "Cuando los archivos estén en la rama predeterminada, el siguiente pull request que cambie la carpeta de migraciones recibirá un comentario de revisión de Bytebase. Al fusionarlo, se despliega.",
++        "next-gitlab": "Cuando los archivos estén en la rama predeterminada, el siguiente merge request que cambie la carpeta de migraciones recibirá un comentario de revisión de Bytebase. Al fusionarlo, se despliega.",
++        "next-title": "Qué pasa después",
++        "repository": "Repositorio",
++        "show-all": "Mostrar las {{lines}} líneas",
++        "url-missing": "Los archivos muestran <code>{{placeholder}}</code> donde va la dirección de Bytebase. Copiar está desactivado hasta que se configure la URL externa, porque un flujo de trabajo sin dirección no puede conectarse a Bytebase."
++      },
++      "identity": {
++        "create": "Crear identidad de carga de trabajo",
++        "description": "Tu flujo de trabajo inicia sesión en Bytebase con esta identidad, así que no se guarda ningún secreto en el repositorio.",
++        "every-repository": "Todos los repositorios de {{owner}}",
++        "git-provider": "Proveedor de Git",
++        "label": "Identidad de carga de trabajo",
++        "no-role-description": "Su flujo de trabajo puede iniciar sesión, pero Bytebase rechazará la revisión y el despliegue. Concédele el rol GitOps Service Agent en la página Miembros.",
++        "no-role-title": "Esta identidad no tiene ningún rol que permita GitOps",
++        "none": "Este proyecto todavía no tiene identidades de carga de trabajo.",
++        "open-members": "Abrir Miembros",
++        "other-provider": "Otro OIDC. La configuración no tiene archivos de flujo de trabajo para él.",
++        "placeholder": "Selecciona una identidad de carga de trabajo",
++        "question": "¿Con qué identidad de carga de trabajo inicia sesión tu flujo de trabajo?",
++        "read-from": "Leído de esta identidad",
++        "repositories": "Repositorios que pueden iniciar sesión",
++        "role": "Rol en este proyecto"
++      },
++      "no-database": {
++        "description": "GitOps despliega en las bases de datos de este proyecto. Primero agrega o transfiere una base de datos a este proyecto.",
++        "title": "Este proyecto no tiene bases de datos"
++      },
++      "no-identity": {
++        "description": "Tu flujo de trabajo inicia sesión en Bytebase como una identidad de carga de trabajo de este proyecto. Pide a un propietario del proyecto que cree una.",
++        "title": "Este proyecto no tiene identidades de carga de trabajo"
++      },
++      "outcome": "Cada pull request que cambia la carpeta de migraciones recibe una revisión de Bytebase. Al fusionarlo, se despliega.",
++      "scope": "La configuración genera archivos de flujo de trabajo para GitHub Actions y GitLab CI. Para otras plataformas de CI/CD, consulta la <docs>documentación de GitOps</docs>.",
++      "steps": {
++        "databases": "Bases de datos",
++        "workflow-files": "Archivos del flujo de trabajo",
++        "workload-identity": "Identidad de carga de trabajo"
++      },
++      "title": "GitOps"
+     }
+   },
+   "identity-provider": {
+diff --git a/frontend/src/locales/ja-JP.json b/frontend/src/locales/ja-JP.json
+index 9c42509..8f9bc49 100644
+--- a/frontend/src/locales/ja-JP.json
++++ b/frontend/src/locales/ja-JP.json
+@@ -1303,22 +1303,30 @@
+   },
+   "gitops": {
+     "back-to-releases": "リリースに戻る",
+-    "checklist": {
+-      "database-group-recommendation": "同じスキーマを持つデータベースには、データベースグループを使用すると一度の変更でまとめてマイグレーションできます。グループを一度定義すれば、毎回個別にデータベースを選択することなく、マイグレーション全体で再利用できます。",
+-      "external-url": "外部URL",
+-      "target-databases": "ターゲットデータベース",
+-      "title": "開始前の確認",
+-      "wif-notice-suffix": "サービスアカウントを使用して GitOps を設定できます。",
+-      "wif-notice-text": "Workload Identity Federation は現在 GitHub と GitLab のみサポートしています。他の VCS については、チュートリアルを参照してください：",
+-      "workload-identity": "ワークロードアイデンティティ"
+-    },
+-    "documentation": "ドキュメントを見る",
+-    "overview": {
+-      "description": "Bytebase GitOps は、データベーススキーマの変更を CI/CD パイプラインに統合し、Database as Code として管理できます。",
+-      "description-git": "データベーススキーマはアプリケーションコードと一緒に Git で管理されます。プルリクエストで SQL レビューがトリガーされ、ターゲットブランチへのマージで自動的にロールアウトが作成されます。",
+-      "title": "GitOps とは"
+-    },
+     "setup": {
++      "continue": "続行",
++      "databases": {
++        "create-group": "データベースグループを作成",
++        "databases-hint": "これらのデータベースはワークフローファイルに書き込まれます。後で追加するにはファイルを編集してください。",
++        "databases-label": "データベース",
++        "databases-placeholder": "データベースを選択",
++        "databases-tab": "データベース",
++        "deploy-order-hint": "変更はこの順序で、一度に 1 つの環境ずつデプロイされます。",
++        "description": "ワークフローはすべてのマイグレーションファイルをこれらのデータベースに対してレビューし、デプロイします。",
++        "group-hint": "後からこのグループに加わったデータベースにも、ワークフローファイルを変更せずにデプロイされます。",
++        "group-label": "データベースグループ",
++        "group-matches-none": "このグループに一致するデータベースはまだないため、デプロイ対象がありません。",
++        "group-placeholder": "データベースグループを選択",
++        "group-tab": "データベースグループ",
++        "no-group-description": "後からグループに加わったデータベースにも、ワークフローファイルを変更せずにデプロイされるため、グループを推奨します。",
++        "no-group-title": "このプロジェクトにはデータベースグループがありません",
++        "none-pickable-description": "このプロジェクトのどのデータベースにも環境がないため、デプロイ順序に入りません。選択するにはデータベースに環境を割り当ててください。",
++        "none-pickable-title": "選択できるデータベースがありません",
++        "question": "GitOps はどのデータベースにデプロイしますか？",
++        "recommended": "推奨",
++        "view-databases": "データベースを表示",
++        "view-group": "グループを表示"
++      },
+       "deploy-order": {
+         "database-count_one": "{{count}} 個のデータベース",
+         "database-count_other": "{{count}} 個のデータベース",
+@@ -1330,25 +1338,57 @@
+         "unassigned-description_other": "環境が設定されていないため、デプロイはエラーを出さずにスキップします。含めるには環境を割り当ててください。",
+         "unassigned-title_one": "{{count}} 個のデータベースはデプロイされません",
+         "unassigned-title_other": "{{count}} 個のデータベースはデプロイされません"
+-      }
+-    },
+-    "test-setup": {
+-      "description": "サンプルマイグレーションファイルでワークフロー全体が正常に動作するか確認します。",
+-      "naming-convention": "マイグレーションファイルは辞書順に適用されます。タイムスタンプまたはシーケンス番号のプレフィックスを使用してください（例: 20240101000000_create_table.sql）。変更タイプを示すために _ddl または _dml を末尾に追加してください。",
+-      "step-create-branch": "新しいブランチを作成し、上記のファイルを追加して、{{branch}} へのプルリクエストを作成します。",
+-      "step-merge": "レビューが通過したら PR をマージします。Bytebase が自動的にロールアウトを作成し、ターゲット環境にデプロイします。",
+-      "step-sql-review": "SQL Review がプルリクエストで自動的に実行され、レビューコメントが投稿されます。",
+-      "title": "最初の GitOps マイグレーションをテスト"
+-    },
+-    "workflow": {
+-      "description": "ワークフローファイルをリポジトリにコピーして、SQL レビューとデータベースロールアウトを自動化します。",
+-      "file-hint": "リポジトリ {{repository}} 内に {{filePath}} として保存",
+-      "provider-not-match": "選択された ワークロード アイデンティティ は {{provider}} 専用です。",
+-      "self-hosted-runner": "セルフホスト runner",
+-      "title": "ワークフローファイル生成"
+-    },
+-    "workload-identity": {
+-      "select-placeholder": "ワークロードアイデンティティを選択"
++      },
++      "external-url-description": "ワークフローはこのアドレスで Bytebase に接続します。手順は今すぐ進められます。ワークスペース管理者が設定すると、ワークフローファイルが完成します。",
++      "files": {
++        "copy-off": "外部 URL が設定されるまでコピーできません",
++        "description": "ファイルにはデータベースとワークロード ID がすでに含まれています。そのままコピーしてください。",
++        "developers-github": "開発者向け: <code>{{file}}</code> のようなファイルをプルリクエストで追加してください。ファイル名はバージョン番号で始めます。番号のないファイルはスキップされます。",
++        "developers-gitlab": "開発者向け: <code>{{file}}</code> のようなファイルをマージリクエストで追加してください。ファイル名はバージョン番号で始めます。番号のないファイルはスキップされます。",
++        "folder-hint": "ワークフローはこのフォルダー内の SQL ファイルをレビューし、デプロイします。",
++        "folder-invalid": "リポジトリのルートからの相対パスを入力してください（例: migrations、db/migrations）。",
++        "folder-label": "マイグレーションフォルダー",
++        "heading": "ファイルをリポジトリに追加",
++        "next-github": "ファイルがデフォルトブランチに入ると、次にマイグレーションフォルダーを変更するプルリクエストに Bytebase のレビューコメントが付きます。マージするとデプロイされます。",
++        "next-gitlab": "ファイルがデフォルトブランチに入ると、次にマイグレーションフォルダーを変更するマージリクエストに Bytebase のレビューコメントが付きます。マージするとデプロイされます。",
++        "next-title": "次に起こること",
++        "repository": "リポジトリ",
++        "show-all": "全 {{lines}} 行を表示",
++        "url-missing": "ファイルでは Bytebase のアドレスの位置に <code>{{placeholder}}</code> が表示されています。アドレスのないワークフローは Bytebase に接続できないため、外部 URL が設定されるまでコピーはできません。"
++      },
++      "identity": {
++        "create": "ワークロード ID を作成",
++        "description": "ワークフローはこの ID で Bytebase にサインインするため、リポジトリにシークレットを保存しません。",
++        "every-repository": "{{owner}} のすべてのリポジトリ",
++        "git-provider": "Git プロバイダー",
++        "label": "ワークロード ID",
++        "no-role-description": "ワークフローはサインインできますが、Bytebase はレビューとデプロイを拒否します。メンバーページで GitOps Service Agent ロールを付与してください。",
++        "no-role-title": "この ID には GitOps を許可するロールがありません",
++        "none": "このプロジェクトにはまだワークロード ID がありません。",
++        "open-members": "メンバーを開く",
++        "other-provider": "その他の OIDC。セットアップにはこのためのワークフローファイルがありません。",
++        "placeholder": "ワークロード ID を選択",
++        "question": "ワークフローはどのワークロード ID でサインインしますか？",
++        "read-from": "この ID から読み取った情報",
++        "repositories": "サインインできるリポジトリ",
++        "role": "このプロジェクトでのロール"
++      },
++      "no-database": {
++        "description": "GitOps はこのプロジェクトのデータベースにデプロイします。まずデータベースをこのプロジェクトに追加または移動してください。",
++        "title": "このプロジェクトにはデータベースがありません"
++      },
++      "no-identity": {
++        "description": "ワークフローはこのプロジェクトのワークロード ID として Bytebase にサインインします。プロジェクトオーナーに作成を依頼してください。",
++        "title": "このプロジェクトにはワークロード ID がありません"
++      },
++      "outcome": "マイグレーションフォルダーを変更するすべてのプルリクエストが Bytebase のレビューを受けます。マージするとデプロイされます。",
++      "scope": "セットアップは GitHub Actions と GitLab CI 用のワークフローファイルを作成します。その他の CI/CD プラットフォームについては <docs>GitOps ドキュメント</docs>をご覧ください。",
++      "steps": {
++        "databases": "データベース",
++        "workflow-files": "ワークフローファイル",
++        "workload-identity": "ワークロード ID"
++      },
++      "title": "GitOps"
+     }
+   },
+   "identity-provider": {
+diff --git a/frontend/src/locales/vi-VN.json b/frontend/src/locales/vi-VN.json
+index 6a07876..650475b 100644
+--- a/frontend/src/locales/vi-VN.json
++++ b/frontend/src/locales/vi-VN.json
+@@ -1303,22 +1303,30 @@
+   },
+   "gitops": {
+     "back-to-releases": "Quay lại Bản phát hành",
+-    "checklist": {
+-      "database-group-recommendation": "Đối với các cơ sở dữ liệu có cùng schema, nhóm cơ sở dữ liệu cho phép bạn migration tất cả cùng lúc trong một thay đổi. Chỉ cần định nghĩa nhóm một lần và tái sử dụng trong các lần migration mà không cần chọn từng cơ sở dữ liệu mỗi lần.",
+-      "external-url": "URL bên ngoài",
+-      "target-databases": "Cơ sở dữ liệu đích",
+-      "title": "Kiểm tra trước khi bắt đầu",
+-      "wif-notice-suffix": "để thiết lập GitOps bằng tài khoản dịch vụ.",
+-      "wif-notice-text": "Workload Identity Federation hiện chỉ hỗ trợ GitHub và GitLab. Đối với các VCS khác, vui lòng tham khảo hướng dẫn cho",
+-      "workload-identity": "Workload Identity"
+-    },
+-    "documentation": "Xem tài liệu",
+-    "overview": {
+-      "description": "Bytebase GitOps cho phép bạn quản lý Database as Code bằng cách tích hợp các thay đổi schema cơ sở dữ liệu vào pipeline CI/CD.",
+-      "description-git": "Schema cơ sở dữ liệu của bạn được lưu trữ trong Git cùng với mã nguồn ứng dụng. Pull request sẽ kích hoạt SQL review, và việc merge vào nhánh đích sẽ tự động tạo rollout.",
+-      "title": "GitOps là gì"
+-    },
+     "setup": {
++      "continue": "Tiếp tục",
++      "databases": {
++        "create-group": "Tạo nhóm cơ sở dữ liệu",
++        "databases-hint": "Các cơ sở dữ liệu này được ghi vào tệp workflow. Để thêm sau này, hãy sửa các tệp.",
++        "databases-label": "Cơ sở dữ liệu",
++        "databases-placeholder": "Chọn cơ sở dữ liệu",
++        "databases-tab": "Cơ sở dữ liệu",
++        "deploy-order-hint": "Thay đổi được triển khai lần lượt từng môi trường, theo thứ tự này.",
++        "description": "Workflow review và triển khai mọi tệp migration lên các cơ sở dữ liệu này.",
++        "group-hint": "Cơ sở dữ liệu tham gia nhóm này sau này cũng được triển khai mà không cần sửa tệp workflow.",
++        "group-label": "Nhóm cơ sở dữ liệu",
++        "group-matches-none": "Nhóm này chưa khớp với cơ sở dữ liệu nào, nên chưa có gì để triển khai.",
++        "group-placeholder": "Chọn nhóm cơ sở dữ liệu",
++        "group-tab": "Nhóm cơ sở dữ liệu",
++        "no-group-description": "Nên dùng nhóm vì cơ sở dữ liệu tham gia nhóm sau này cũng được triển khai mà không cần sửa tệp workflow.",
++        "no-group-title": "Dự án này chưa có nhóm cơ sở dữ liệu",
++        "none-pickable-description": "Mọi cơ sở dữ liệu trong dự án này đều chưa có môi trường, nên không có vị trí trong thứ tự triển khai. Hãy gán môi trường cho một cơ sở dữ liệu để chọn nó.",
++        "none-pickable-title": "Không có cơ sở dữ liệu nào để chọn",
++        "question": "GitOps nên triển khai lên những cơ sở dữ liệu nào?",
++        "recommended": "Khuyến nghị",
++        "view-databases": "Xem cơ sở dữ liệu",
++        "view-group": "Xem nhóm"
++      },
+       "deploy-order": {
+         "database-count_one": "{{count}} cơ sở dữ liệu",
+         "database-count_other": "{{count}} cơ sở dữ liệu",
+@@ -1330,25 +1338,57 @@
+         "unassigned-description_other": "Các cơ sở dữ liệu này chưa có môi trường nên lần triển khai bỏ qua mà không báo lỗi. Hãy gán môi trường để đưa vào.",
+         "unassigned-title_one": "{{count}} cơ sở dữ liệu sẽ không được triển khai",
+         "unassigned-title_other": "{{count}} cơ sở dữ liệu sẽ không được triển khai"
+-      }
+-    },
+-    "test-setup": {
+-      "description": "Xác minh workflow hoạt động đầy đủ với một tệp migration mẫu.",
+-      "naming-convention": "Các tệp migration được áp dụng theo thứ tự từ điển. Sử dụng tiền tố timestamp hoặc số thứ tự, ví dụ: 20240101000000_create_table.sql. Thêm _ddl hoặc _dml để chỉ loại thay đổi.",
+-      "step-create-branch": "Tạo nhánh mới, thêm tệp ở trên và mở pull request nhắm đến {{branch}}.",
+-      "step-merge": "Sau khi review thông qua, merge PR. Bytebase sẽ tự động tạo rollout và triển khai đến các môi trường đích.",
+-      "step-sql-review": "SQL Review tự động chạy trên pull request và đăng nhận xét review.",
+-      "title": "Thử nghiệm migration GitOps đầu tiên"
+-    },
+-    "workflow": {
+-      "description": "Sao chép các tệp workflow vào kho lưu trữ của bạn để tự động hóa SQL review và triển khai cơ sở dữ liệu.",
+-      "file-hint": "Lưu dưới dạng {{filePath}} trong kho lưu trữ {{repository}} của bạn",
+-      "provider-not-match": "Workload identity đã chọn chỉ hoạt động cho {{provider}}.",
+-      "self-hosted-runner": "Runner tự lưu trữ",
+-      "title": "Tạo tệp workflow"
+-    },
+-    "workload-identity": {
+-      "select-placeholder": "Chọn một workload identity"
++      },
++      "external-url-description": "Workflow của bạn dùng địa chỉ này để kết nối Bytebase. Bạn có thể làm các bước ngay bây giờ. Các tệp workflow sẽ hoàn chỉnh khi quản trị viên workspace thiết lập địa chỉ này.",
++      "files": {
++        "copy-off": "Không thể sao chép cho đến khi External URL được thiết lập",
++        "description": "Các tệp đã chứa cơ sở dữ liệu và workload identity của bạn. Hãy sao chép nguyên văn.",
++        "developers-github": "Dành cho lập trình viên: thêm một tệp như <code>{{file}}</code> trong pull request. Tên tệp bắt đầu bằng số phiên bản. Workflow bỏ qua tệp không có số này.",
++        "developers-gitlab": "Dành cho lập trình viên: thêm một tệp như <code>{{file}}</code> trong merge request. Tên tệp bắt đầu bằng số phiên bản. Workflow bỏ qua tệp không có số này.",
++        "folder-hint": "Workflow review và triển khai các tệp SQL trong thư mục này.",
++        "folder-invalid": "Nhập đường dẫn thư mục tính từ gốc repository, ví dụ migrations hoặc db/migrations.",
++        "folder-label": "Thư mục migration",
++        "heading": "Thêm các tệp vào repository của bạn",
++        "next-github": "Khi các tệp đã có trên nhánh mặc định, pull request tiếp theo thay đổi thư mục migration sẽ nhận bình luận review của Bytebase. Khi merge, thay đổi được triển khai.",
++        "next-gitlab": "Khi các tệp đã có trên nhánh mặc định, merge request tiếp theo thay đổi thư mục migration sẽ nhận bình luận review của Bytebase. Khi merge, thay đổi được triển khai.",
++        "next-title": "Điều gì xảy ra tiếp theo",
++        "repository": "Repository",
++        "show-all": "Hiện tất cả {{lines}} dòng",
++        "url-missing": "Các tệp hiển thị <code>{{placeholder}}</code> ở vị trí địa chỉ Bytebase. Chức năng sao chép bị tắt cho đến khi External URL được thiết lập, vì workflow không có địa chỉ thì không thể kết nối Bytebase."
++      },
++      "identity": {
++        "create": "Tạo workload identity",
++        "description": "Workflow của bạn đăng nhập Bytebase bằng identity này, nên không có secret nào được lưu trong repository.",
++        "every-repository": "Mọi repository của {{owner}}",
++        "git-provider": "Nhà cung cấp Git",
++        "label": "Workload identity",
++        "no-role-description": "Workflow có thể đăng nhập, nhưng Bytebase sẽ từ chối review và triển khai. Hãy cấp vai trò GitOps Service Agent cho identity này trên trang Thành viên.",
++        "no-role-title": "Identity này không có vai trò cho phép GitOps",
++        "none": "Dự án này chưa có workload identity nào.",
++        "open-members": "Mở Thành viên",
++        "other-provider": "OIDC khác. Phần thiết lập không có tệp workflow cho loại này.",
++        "placeholder": "Chọn workload identity",
++        "question": "Workflow của bạn đăng nhập bằng workload identity nào?",
++        "read-from": "Đọc từ identity này",
++        "repositories": "Repository có thể đăng nhập",
++        "role": "Vai trò trong dự án này"
++      },
++      "no-database": {
++        "description": "GitOps triển khai lên các cơ sở dữ liệu của dự án này. Hãy thêm hoặc chuyển một cơ sở dữ liệu vào dự án này trước.",
++        "title": "Dự án này chưa có cơ sở dữ liệu"
++      },
++      "no-identity": {
++        "description": "Workflow của bạn đăng nhập Bytebase bằng một workload identity của dự án này. Hãy nhờ chủ sở hữu dự án tạo một workload identity.",
++        "title": "Dự án này chưa có workload identity"
++      },
++      "outcome": "Mỗi pull request thay đổi thư mục migration đều được Bytebase review. Khi merge, thay đổi được triển khai.",
++      "scope": "Phần thiết lập tạo tệp workflow cho GitHub Actions và GitLab CI. Với các nền tảng CI/CD khác, hãy xem <docs>tài liệu GitOps</docs>.",
++      "steps": {
++        "databases": "Cơ sở dữ liệu",
++        "workflow-files": "Tệp workflow",
++        "workload-identity": "Workload identity"
++      },
++      "title": "GitOps"
+     }
+   },
+   "identity-provider": {
+diff --git a/frontend/src/locales/zh-CN.json b/frontend/src/locales/zh-CN.json
+index 3cfdbc8..9512f83 100644
+--- a/frontend/src/locales/zh-CN.json
++++ b/frontend/src/locales/zh-CN.json
+@@ -1303,22 +1303,30 @@
+   },
+   "gitops": {
+     "back-to-releases": "返回发布包",
+-    "checklist": {
+-      "database-group-recommendation": "对于具有相同 Schema 的数据库，数据库分组可以让您在一次变更中同时迁移它们。只需定义一次分组，即可在多次迁移中复用，无需每次都逐个选择数据库。",
+-      "external-url": "外部访问地址",
+-      "target-databases": "目标数据库",
+-      "title": "开始前检查",
+-      "wif-notice-suffix": "以使用服务账号配置 GitOps。",
+-      "wif-notice-text": "Workload Identity Federation 目前仅支持 GitHub 和 GitLab。对于其他 VCS，请参考以下教程：",
+-      "workload-identity": "工作负载身份"
+-    },
+-    "documentation": "查看文档",
+-    "overview": {
+-      "description": "Bytebase GitOps 让您通过将数据库架构变更集成到 CI/CD 流水线中，以 Database as Code 的方式管理数据库。",
+-      "description-git": "数据库架构与应用代码一起存储在 Git 中。拉取请求会触发 SQL 审查，合并到目标分支后会自动创建变更发布。",
+-      "title": "什么是 GitOps"
+-    },
+     "setup": {
++      "continue": "继续",
++      "databases": {
++        "create-group": "创建数据库组",
++        "databases-hint": "这些数据库会写入工作流文件。之后如需添加，请编辑这些文件。",
++        "databases-label": "数据库",
++        "databases-placeholder": "选择数据库",
++        "databases-tab": "数据库",
++        "deploy-order-hint": "变更按此顺序逐个环境部署。",
++        "description": "工作流针对这些数据库审核并部署每个迁移文件。",
++        "group-hint": "之后加入此组的数据库也会被部署，无需修改工作流文件。",
++        "group-label": "数据库组",
++        "group-matches-none": "此组尚未匹配任何数据库，因此没有可部署的内容。",
++        "group-placeholder": "选择数据库组",
++        "group-tab": "数据库组",
++        "no-group-description": "推荐使用数据库组，因为之后加入组的数据库也会被部署，无需修改工作流文件。",
++        "no-group-title": "此项目没有数据库组",
++        "none-pickable-description": "此项目中的所有数据库都没有环境，因此都不在部署顺序中。为数据库分配环境后即可选择。",
++        "none-pickable-title": "没有可选择的数据库",
++        "question": "GitOps 应部署到哪些数据库？",
++        "recommended": "推荐",
++        "view-databases": "查看数据库",
++        "view-group": "查看组"
++      },
+       "deploy-order": {
+         "database-count_one": "{{count}} 个数据库",
+         "database-count_other": "{{count}} 个数据库",
+@@ -1330,25 +1338,57 @@
+         "unassigned-description_other": "它们没有环境，部署会跳过它们且不报错。为它们指定环境即可纳入部署。",
+         "unassigned-title_one": "{{count}} 个数据库不会被部署",
+         "unassigned-title_other": "{{count}} 个数据库不会被部署"
+-      }
+-    },
+-    "test-setup": {
+-      "description": "使用示例迁移文件验证整个工作流是否正常运行。",
+-      "naming-convention": "迁移文件按字典顺序执行。请使用时间戳或序号前缀，例如 20240101000000_create_table.sql。在文件名末尾添加 _ddl 或 _dml 来标识变更类型。",
+-      "step-create-branch": "创建新分支，添加上面的文件，然后向 {{branch}} 提交拉取请求。",
+-      "step-merge": "审查通过后，合并 PR。Bytebase 将自动创建 rollout 并部署到目标环境。",
+-      "step-sql-review": "SQL Review 会自动在拉取请求上运行并发布审查评论。",
+-      "title": "测试您的首次 GitOps 迁移"
+-    },
+-    "workflow": {
+-      "description": "将工作流文件复制到您的代码仓库中，以自动化 SQL 审查和数据库变更发布。",
+-      "file-hint": "保存为仓库 {{repository}} 中的 {{filePath}}",
+-      "provider-not-match": "所选的 工作负载标识 (Workload Identity) 仅适用于 {{provider}}。",
+-      "self-hosted-runner": "自托管 runner",
+-      "title": "工作流文件生成"
+-    },
+-    "workload-identity": {
+-      "select-placeholder": "选择工作负载身份"
++      },
++      "external-url-description": "你的工作流通过此地址访问 Bytebase。你现在就可以完成这些步骤。工作区管理员设置该地址后，工作流文件即完整。",
++      "files": {
++        "copy-off": "设置外部 URL 之前无法复制",
++        "description": "这些文件已包含你的数据库和工作负载身份。请原样复制。",
++        "developers-github": "开发者：在拉取请求中添加一个文件，例如 <code>{{file}}</code>。文件名以版本号开头。没有版本号的文件会被工作流跳过。",
++        "developers-gitlab": "开发者：在合并请求中添加一个文件，例如 <code>{{file}}</code>。文件名以版本号开头。没有版本号的文件会被工作流跳过。",
++        "folder-hint": "工作流审核并部署此文件夹中的 SQL 文件。",
++        "folder-invalid": "请输入相对于仓库根目录的文件夹路径，例如 migrations 或 db/migrations。",
++        "folder-label": "迁移文件夹",
++        "heading": "将文件添加到你的仓库",
++        "next-github": "文件进入默认分支后，下一个修改迁移文件夹的拉取请求会收到 Bytebase 审核评论。合并后即部署。",
++        "next-gitlab": "文件进入默认分支后，下一个修改迁移文件夹的合并请求会收到 Bytebase 审核评论。合并后即部署。",
++        "next-title": "接下来会发生什么",
++        "repository": "仓库",
++        "show-all": "显示全部 {{lines}} 行",
++        "url-missing": "文件中 Bytebase 地址的位置显示为 <code>{{placeholder}}</code>。设置外部 URL 之前无法复制，因为没有地址的工作流无法访问 Bytebase。"
++      },
++      "identity": {
++        "create": "创建工作负载身份",
++        "description": "你的工作流以此身份登录 Bytebase，因此仓库中不存储任何密钥。",
++        "every-repository": "{{owner}} 的所有仓库",
++        "git-provider": "Git 提供商",
++        "label": "工作负载身份",
++        "no-role-description": "其工作流可以登录，但 Bytebase 会拒绝审核和部署。请在成员页面为其授予 GitOps Service Agent 角色。",
++        "no-role-title": "此身份没有允许 GitOps 的角色",
++        "none": "此项目还没有工作负载身份。",
++        "open-members": "打开成员",
++        "other-provider": "其他 OIDC。设置中没有适用于它的工作流文件。",
++        "placeholder": "选择工作负载身份",
++        "question": "你的工作流以哪个工作负载身份登录？",
++        "read-from": "从此身份读取",
++        "repositories": "可登录的仓库",
++        "role": "在此项目中的角色"
++      },
++      "no-database": {
++        "description": "GitOps 部署到此项目的数据库。请先向此项目添加或转移一个数据库。",
++        "title": "此项目没有数据库"
++      },
++      "no-identity": {
++        "description": "你的工作流以此项目的工作负载身份登录 Bytebase。请让项目所有者创建一个。",
++        "title": "此项目没有工作负载身份"
++      },
++      "outcome": "每个修改迁移文件夹的拉取请求都会获得 Bytebase 审核。合并后即部署。",
++      "scope": "设置会为 GitHub Actions 和 GitLab CI 生成工作流文件。其他 CI/CD 平台请参阅 <docs>GitOps 文档</docs>。",
++      "steps": {
++        "databases": "数据库",
++        "workflow-files": "工作流文件",
++        "workload-identity": "工作负载身份"
++      },
++      "title": "GitOps"
+     }
+   },
+   "identity-provider": {
+diff --git a/frontend/src/routes/project/ProjectGitOpsPage.test.tsx b/frontend/src/routes/project/ProjectGitOpsPage.test.tsx
+new file mode 100644
+index 0000000..f192691
+--- /dev/null
++++ b/frontend/src/routes/project/ProjectGitOpsPage.test.tsx
+@@ -0,0 +1,746 @@
++import { create } from "@bufbuild/protobuf";
++import { act } from "react";
++import { createRoot, type Root } from "react-dom/client";
++import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
++import githubIcon from "@/assets/git/github.svg";
++import gitlabIcon from "@/assets/git/gitlab.svg";
++import { BindingSchema, IamPolicySchema } from "@/types/proto-es/v1/iam_policy_pb";
++import {
++  type Database,
++  DatabaseSchema$,
++} from "@/types/proto-es/v1/database_service_pb";
++import { DatabaseGroupSchema } from "@/types/proto-es/v1/database_group_service_pb";
++import {
++  type WorkloadIdentity,
++  WorkloadIdentityConfig_ProviderType,
++  WorkloadIdentityConfigSchema,
++  WorkloadIdentitySchema,
++} from "@/types/proto-es/v1/workload_identity_service_pb";
++import { FILE_PREVIEW_LINES } from "./gitops-setup/WorkflowFilesStep";
++import { ProjectGitOpsPage } from "./ProjectGitOpsPage";
++
++(
++  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
++).IS_REACT_ACT_ENVIRONMENT = true;
++
++const identityOf = (
++  id: string,
++  providerType: WorkloadIdentityConfig_ProviderType,
++  subjectPattern: string
++): WorkloadIdentity => {
++  const email = `${id}@shop.workload.bytebase.com`;
++  return create(WorkloadIdentitySchema, {
++    name: `workloadIdentities/${email}`,
++    email,
++    title: id,
++    workloadIdentityConfig: create(WorkloadIdentityConfigSchema, {
++      providerType,
++      subjectPattern,
++    }),
++  });
++};
++
++const DEPLOY_CI = identityOf(
++  "deploy-ci",
++  WorkloadIdentityConfig_ProviderType.GITHUB,
++  "repo:acme-corp/deploy:ref:refs/heads/main"
++);
++const ORG_CI = identityOf(
++  "org-ci",
++  WorkloadIdentityConfig_ProviderType.GITHUB,
++  "repo:acme-corp/*"
++);
++const OTHER_CI = identityOf(
++  "other-ci",
++  WorkloadIdentityConfig_ProviderType.OIDC,
++  "system:serviceaccount:ci"
++);
++const NEW_CI = identityOf(
++  "new-ci",
++  WorkloadIdentityConfig_ProviderType.GITLAB,
++  "project_path:acme-corp/deploy:ref_type:branch:ref:main"
++);
++
++const databaseOf = (name: string, environment: string): Database =>
++  create(DatabaseSchema$, {
++    name: `instances/pg-prod/databases/${name}`,
++    effectiveEnvironment: environment,
++  });
++
++const mocks = vi.hoisted(() => {
++  const state = {
++    groups: [] as unknown[],
++    databases: [] as unknown[],
++    identities: [] as WorkloadIdentity[],
++    identitiesByName: {} as Record<string, WorkloadIdentity>,
++    // Members that hold a role in the project.
++    members: [] as string[],
++  };
++  const store = {
++    fetchDBGroupListByProjectName: vi.fn(async () => state.groups),
++    fetchDatabases: vi.fn(async () => ({
++      databases: state.databases,
++      nextPageToken: "",
++    })),
++    listWorkloadIdentities: vi.fn(async () => ({
++      workloadIdentities: state.identities,
++      nextPageToken: "",
++    })),
++    loadProjectIamPolicy: vi.fn(async () => undefined),
++    fetchWorkloadIdentity: vi.fn(async () => undefined),
++    getWorkloadIdentity: (name: string) => state.identitiesByName[name],
++    projectPoliciesByName: {} as Record<string, unknown>,
++    workspacePolicy: undefined,
++  };
++  const useAppStore = vi.fn((selector: (s: typeof store) => unknown) =>
++    selector(store)
++  );
++  return {
++    state,
++    store,
++    canCreate: true,
++    serverState: {
++      serverInfo: { version: "3.14.0" },
++      externalUrl: "https://bytebase.example.com",
++      needConfigureExternalUrl: false,
++    },
++    useAppStore: Object.assign(useAppStore, { getState: () => store }),
++  };
++});
++
++vi.mock("react-i18next", () => ({
++  initReactI18next: { type: "3rdParty", init: () => undefined },
++  useTranslation: () => ({
++    t: (key: string, values?: Record<string, unknown>) =>
++      values ? `${key} ${JSON.stringify(values)}` : key,
++  }),
++  Trans: ({
++    i18nKey,
++    values,
++  }: {
++    i18nKey: string;
++    values?: Record<string, unknown>;
++  }) => `${i18nKey} ${JSON.stringify(values ?? {})}`,
++}));
++
++vi.mock("@/stores/app", () => ({ useAppStore: mocks.useAppStore }));
++
++vi.mock("@/hooks/useAppState", () => ({
++  useServerState: () => mocks.serverState,
++}));
++
++vi.mock("@/hooks/useProjectByName", () => ({
++  useProjectByName: () => ({ name: "projects/shop" }),
++}));
++
++vi.mock("@/utils", async () => ({
++  ...(await vi.importActual<typeof import("@/utils/workloadIdentity")>(
++    "@/utils/workloadIdentity"
++  )),
++  getDefaultPagination: () => 50,
++  hasProjectPermissionV2: () => mocks.canCreate,
++  isBindingPolicyExpired: () => false,
++}));
++
++vi.mock("@/utils/role", () => ({
++  displayRoleTitle: (role: string) => role,
++}));
++
++vi.mock("@/components/RouterLink", () => ({
++  RouterLink: ({
++    children,
++    to,
++  }: {
++    children: React.ReactNode;
++    to: { name: string };
++  }) => <a data-route={to.name}>{children}</a>,
++}));
++
++vi.mock("@/components/ExternalUrlAlert", () => ({
++  ExternalUrlAlert: () =>
++    mocks.serverState.needConfigureExternalUrl ? (
++      <div data-testid="external-url-alert" />
++    ) : null,
++}));
++
++vi.mock("@/components/ui/step-indicator", () => ({
++  StepIndicator: ({
++    steps,
++    currentIndex,
++  }: {
++    steps: { title: string }[];
++    currentIndex: number;
++  }) => <div data-testid="step">{steps[currentIndex].title}</div>,
++}));
++
++vi.mock("@/components/ui/sticky-action-footer", () => ({
++  StickyActionFooter: ({
++    left,
++    right,
++  }: {
++    left: React.ReactNode;
++    right: React.ReactNode;
++  }) => (
++    <div data-testid="footer">
++      {left}
++      {right}
++    </div>
++  ),
++}));
++
++vi.mock("@/components/ui/copy-button", () => ({
++  CopyButton: ({
++    content,
++    disabled,
++    label,
++  }: {
++    content: string;
++    disabled?: boolean;
++    label?: string;
++  }) => (
++    <button
++      type="button"
++      data-copy=""
++      data-content={content}
++      disabled={disabled}
++    >
++      {label ?? "copy"}
++    </button>
++  ),
++}));
++
++vi.mock("@/components/ui/combobox", () => ({
++  Combobox: ({ value, portal }: { value: string; portal?: boolean }) => (
++    <div
++      data-testid="group-select"
++      data-value={value}
++      data-portal={String(!!portal)}
++    />
++  ),
++}));
++
++vi.mock("@/components/DatabaseSelect", () => ({
++  DatabaseSelect: ({
++    value,
++    onChange,
++    portal,
++  }: {
++    value: string[];
++    onChange: (names: string[]) => void;
++    portal?: boolean;
++  }) => (
++    <div
++      data-testid="database-select"
++      data-value={value.join(",")}
++      data-portal={String(!!portal)}
++    >
++      <button
++        type="button"
++        onClick={() => onChange(["instances/pg-prod/databases/shop_a"])}
++      >
++        pick-database
++      </button>
++    </div>
++  ),
++}));
++
++vi.mock("./gitops-setup/DeployOrder", () => ({
++  DeployOrder: () => <div data-testid="deploy-order" />,
++}));
++
++// Every pick lands in one environment, "prod".
++vi.mock("./gitops-setup/useDeployTargets", () => ({
++  useDeployTargets: (
++    pick: { kind: "group"; name: string } | { kind: "databases"; names: string[] }
++  ) => {
++    const picked = pick.kind === "group" ? !!pick.name : pick.names.length > 0;
++    return picked
++      ? {
++          stages: [{ environment: "environments/prod", id: "prod", databases: [] }],
++          unassigned: [],
++          total: 1,
++          loading: false,
++        }
++      : { stages: [], unassigned: [], total: 0, loading: false };
++  },
++}));
++
++// Each identity is a button; one that cannot be picked shows the reason.
++vi.mock("./WorkloadIdentitySelect", () => ({
++  WorkloadIdentitySelect: ({
++    value,
++    onChange,
++    disabledReason,
++    portal,
++  }: {
++    value: string;
++    onChange: (name: string) => void;
++    disabledReason: (wi: WorkloadIdentity) => string | undefined;
++    portal?: boolean;
++  }) => (
++    <div
++      data-testid="identity-select"
++      data-value={value}
++      data-portal={String(!!portal)}
++    >
++      {mocks.state.identities.map((wi) => {
++        const reason = disabledReason(wi);
++        return (
++          <button
++            key={wi.name}
++            type="button"
++            data-option={wi.email}
++            disabled={reason !== undefined}
++            onClick={() => onChange(wi.name)}
++          >
++            {reason ?? wi.email}
++          </button>
++        );
++      })}
++    </div>
++  ),
++}));
++
++// Create hands back NEW_CI, as the real dialog does with closeOnCreate.
++vi.mock("@/components/WorkloadIdentityFlow/WorkloadIdentityDialog", () => ({
++  WorkloadIdentityDialog: ({
++    open,
++    closeOnCreate,
++    gitProvidersOnly,
++    onCreated,
++    onClose,
++  }: {
++    open: boolean;
++    closeOnCreate?: boolean;
++    gitProvidersOnly?: boolean;
++    onCreated: (wi: WorkloadIdentity) => void;
++    onClose: () => void;
++  }) =>
++    open ? (
++      <button
++        type="button"
++        data-close-on-create={String(closeOnCreate)}
++        data-git-providers-only={String(gitProvidersOnly)}
++        onClick={() => {
++          const created = NEW_CI;
++          mocks.state.identities = [...mocks.state.identities, created];
++          mocks.state.identitiesByName[created.name] = created;
++          mocks.state.members.push(`workloadIdentity:${created.email}`);
++          setPolicy();
++          onCreated(created);
++          onClose();
++        }}
++      >
++        dialog-create
++      </button>
++    ) : null,
++}));
++
++const setPolicy = () => {
++  mocks.store.projectPoliciesByName = {
++    "projects/shop": create(IamPolicySchema, {
++      bindings: [
++        create(BindingSchema, {
++          role: "roles/gitopsServiceAgent",
++          members: [...mocks.state.members],
++        }),
++      ],
++    }),
++  };
++};
++
++const setProject = ({
++  groups = 0,
++  databases = [],
++  identities = [],
++  members = [],
++}: {
++  groups?: number;
++  databases?: Database[];
++  identities?: WorkloadIdentity[];
++  members?: WorkloadIdentity[];
++}) => {
++  mocks.state.groups = Array.from({ length: groups }, (_, i) =>
++    create(DatabaseGroupSchema, {
++      name: `projects/shop/databaseGroups/group-${i}`,
++      title: `group-${i}`,
++    })
++  );
++  mocks.state.databases = databases;
++  mocks.state.identities = identities;
++  mocks.state.identitiesByName = Object.fromEntries(
++    identities.map((wi) => [wi.name, wi])
++  );
++  mocks.state.members = members.map((wi) => `workloadIdentity:${wi.email}`);
++  setPolicy();
++};
++
++let root: Root;
++let container: HTMLElement;
++
++const render = async () => {
++  container = document.createElement("div");
++  document.body.appendChild(container);
++  root = createRoot(container);
++  await act(async () => {
++    root.render(<ProjectGitOpsPage projectId="shop" />);
++  });
++};
++
++const button = (text: string) =>
++  Array.from(container.querySelectorAll("button")).find((b) =>
++    b.textContent?.includes(text)
++  );
++const click = async (element: Element | undefined | null) => {
++  if (!element) throw new Error("element not found");
++  await act(async () => {
++    (element as HTMLElement).click();
++  });
++};
++const footerButtons = () =>
++  Array.from(
++    container.querySelectorAll('[data-testid="footer"] button')
++  ).map((b) => b.textContent);
++const continueButton = () =>
++  button("gitops.setup.continue") as HTMLButtonElement | undefined;
++const currentStep = () =>
++  container.querySelector('[data-testid="step"]')?.textContent;
++const fileText = () =>
++  Array.from(container.querySelectorAll("pre"))
++    .map((pre) => pre.textContent)
++    .join("\n");
++const typeInto = async (input: HTMLInputElement, value: string) => {
++  await act(async () => {
++    const setter = Object.getOwnPropertyDescriptor(
++      HTMLInputElement.prototype,
++      "value"
++    )?.set;
++    setter?.call(input, value);
++    input.dispatchEvent(new Event("input", { bubbles: true }));
++  });
++};
++
++// Walks a project with one group and the given identity to step 3.
++const openStep3 = async (identity: WorkloadIdentity) => {
++  setProject({
++    groups: 1,
++    databases: [databaseOf("shop", "environments/prod")],
++    identities: [identity],
++    members: [identity],
++  });
++  await render();
++  await click(continueButton());
++  await click(continueButton());
++  expect(currentStep()).toBe("gitops.setup.steps.workflow-files");
++};
++
++beforeEach(() => {
++  mocks.canCreate = true;
++  mocks.serverState.externalUrl = "https://bytebase.example.com";
++  mocks.serverState.needConfigureExternalUrl = false;
++});
++
++afterEach(() => {
++  act(() => root.unmount());
++  container.remove();
++});
++
++describe("ProjectGitOpsPage", () => {
++  test("a project with one database and no group opens on Databases with it picked", async () => {
++    setProject({ databases: [databaseOf("shop", "environments/prod")] });
++    await render();
++
++    expect(currentStep()).toBe("gitops.setup.steps.databases");
++    expect(
++      container
++        .querySelector('[data-testid="database-select"]')
++        ?.getAttribute("data-value")
++    ).toBe("instances/pg-prod/databases/shop");
++    expect(continueButton()?.disabled).toBe(false);
++  });
++
++  test("Continue is disabled with nothing picked", async () => {
++    setProject({
++      databases: [
++        databaseOf("shop_a", "environments/prod"),
++        databaseOf("shop_b", "environments/prod"),
++      ],
++    });
++    await render();
++
++    expect(continueButton()?.disabled).toBe(true);
++    await click(button("pick-database"));
++    expect(continueButton()?.disabled).toBe(false);
++  });
++
++  test("Continue is disabled for an identity with no role", async () => {
++    setProject({
++      groups: 1,
++      databases: [databaseOf("shop", "environments/prod")],
++      identities: [DEPLOY_CI],
++    });
++    await render();
++    await click(continueButton());
++
++    expect(currentStep()).toBe("gitops.setup.steps.workload-identity");
++    expect(container.textContent).toContain(
++      "gitops.setup.identity.no-role-title"
++    );
++    expect(continueButton()?.disabled).toBe(true);
++  });
++
++  test("an identity for another OIDC provider is listed but cannot be picked", async () => {
++    setProject({
++      groups: 1,
++      databases: [databaseOf("shop", "environments/prod")],
++      identities: [DEPLOY_CI, OTHER_CI],
++      members: [DEPLOY_CI, OTHER_CI],
++    });
++    await render();
++    await click(continueButton());
++
++    const other = container.querySelector(
++      `[data-option="${OTHER_CI.email}"]`
++    ) as HTMLButtonElement;
++    expect(other.disabled).toBe(true);
++    expect(other.textContent).toBe("gitops.setup.identity.other-provider");
++    const deploy = container.querySelector(
++      `[data-option="${DEPLOY_CI.email}"]`
++    ) as HTMLButtonElement;
++    expect(deploy.disabled).toBe(false);
++  });
++
++  test("creating an identity from step 2 returns to step 2 with it picked", async () => {
++    setProject({
++      groups: 1,
++      databases: [databaseOf("shop", "environments/prod")],
++    });
++    await render();
++    await click(continueButton());
++    expect(container.textContent).toContain("gitops.setup.identity.none");
++
++    await click(button("gitops.setup.identity.create"));
++    const create = button("dialog-create");
++    expect(create?.getAttribute("data-close-on-create")).toBe("true");
++    // Setup has workflow files for GitHub Actions and GitLab CI only.
++    expect(create?.getAttribute("data-git-providers-only")).toBe("true");
++    await click(create);
++
++    expect(button("dialog-create")).toBeUndefined();
++    expect(currentStep()).toBe("gitops.setup.steps.workload-identity");
++    expect(
++      container
++        .querySelector('[data-testid="identity-select"]')
++        ?.getAttribute("data-value")
++    ).toBe(NEW_CI.name);
++    expect(continueButton()?.disabled).toBe(false);
++  });
++
++  test("the repository link shows only when the identity names a repository", async () => {
++    await openStep3(DEPLOY_CI);
++    const link = Array.from(container.querySelectorAll("a")).find(
++      (a) => a.textContent === "acme-corp/deploy"
++    );
++    expect(link?.getAttribute("href")).toBe(
++      "https://github.com/acme-corp/deploy"
++    );
++    act(() => root.unmount());
++    container.remove();
++
++    await openStep3(ORG_CI);
++    expect(container.textContent).not.toContain("gitops.setup.files.repository");
++  });
++
++  test("the git provider's logo shows before the provider name and the repository link", async () => {
++    const cases = [
++      { identity: DEPLOY_CI, logo: githubIcon },
++      { identity: NEW_CI, logo: gitlabIcon },
++    ];
++    for (const [index, { identity, logo }] of cases.entries()) {
++      if (index > 0) {
++        act(() => root.unmount());
++        container.remove();
++      }
++      setProject({
++        groups: 1,
++        databases: [databaseOf("shop", "environments/prod")],
++        identities: [identity],
++        members: [identity],
++      });
++      await render();
++      await click(continueButton());
++      expect(currentStep()).toBe("gitops.setup.steps.workload-identity");
++      // The first fact is the git provider.
++      expect(
++        container.querySelector("dd")?.querySelector("img")?.getAttribute("src")
++      ).toBe(logo);
++      expect(container.querySelectorAll("img")).toHaveLength(1);
++
++      await click(continueButton());
++      const link = Array.from(container.querySelectorAll("a")).find(
++        (a) => a.textContent === "acme-corp/deploy"
++      );
++      expect(link?.querySelector("img")?.getAttribute("src")).toBe(logo);
++      expect(container.querySelectorAll("img")).toHaveLength(1);
++    }
++  });
++
++  test("editing the folder changes the files and the developers' line", async () => {
++    await openStep3(DEPLOY_CI);
++    expect(fileText()).toContain('"migrations/*.sql"');
++
++    await click(button("common.edit"));
++    const input = container.querySelector(
++      "#gitops-migration-folder"
++    ) as HTMLInputElement;
++    await typeInto(input, "db/migrations/");
++
++    expect(fileText()).toContain('"db/migrations/*.sql"');
++    expect(fileText()).not.toContain('"migrations/*.sql"');
++    expect(container.textContent).toContain(
++      "db/migrations/0001_create_orders.sql"
++    );
++
++    await typeInto(input, "../outside");
++    expect(container.textContent).toContain(
++      "gitops.setup.files.folder-invalid"
++    );
++    expect(fileText()).toContain('"db/migrations/*.sql"');
++  });
++
++  test("an unset External URL shows the task on every step, a placeholder and no copy", async () => {
++    mocks.serverState.externalUrl = "";
++    mocks.serverState.needConfigureExternalUrl = true;
++    setProject({
++      groups: 1,
++      databases: [databaseOf("shop", "environments/prod")],
++      identities: [DEPLOY_CI],
++      members: [DEPLOY_CI],
++    });
++    await render();
++    const alert = () =>
++      container.querySelector('[data-testid="external-url-alert"]');
++
++    expect(alert()).not.toBeNull();
++    await click(continueButton());
++    expect(alert()).not.toBeNull();
++    await click(continueButton());
++    expect(alert()).not.toBeNull();
++
++    expect(fileText()).toContain("{EXTERNAL_URL}");
++    const copyButtons = Array.from(
++      container.querySelectorAll<HTMLButtonElement>("[data-copy]")
++    );
++    expect(copyButtons.length).toBeGreaterThan(0);
++    expect(copyButtons.every((b) => b.disabled)).toBe(true);
++    expect(container.textContent).toContain("gitops.setup.files.url-missing");
++  });
++
++  test("every picker opens its menu above the sticky footer", async () => {
++    const portal = (testId: string) =>
++      container
++        .querySelector(`[data-testid="${testId}"]`)
++        ?.getAttribute("data-portal");
++    setProject({
++      groups: 1,
++      databases: [databaseOf("shop", "environments/prod")],
++      identities: [DEPLOY_CI],
++      members: [DEPLOY_CI],
++    });
++    await render();
++    expect(portal("group-select")).toBe("true");
++    act(() => root.unmount());
++    container.remove();
++
++    // With no group the Databases tab opens and its one database is picked.
++    setProject({
++      databases: [databaseOf("shop", "environments/prod")],
++      identities: [DEPLOY_CI],
++      members: [DEPLOY_CI],
++    });
++    await render();
++    expect(portal("database-select")).toBe("true");
++
++    await click(continueButton());
++    expect(portal("identity-select")).toBe("true");
++  });
++
++  test("a long file shows its first lines until Show all, and Copy takes the whole file", async () => {
++    await openStep3(DEPLOY_CI);
++    const shownLines = () =>
++      Array.from(container.querySelectorAll("pre")).map(
++        (pre) => (pre.textContent ?? "").split("\n").length
++      );
++    const copied = () =>
++      Array.from(container.querySelectorAll("[data-copy]")).map(
++        (b) => b.getAttribute("data-content") ?? ""
++      );
++    expect(shownLines()).toEqual([FILE_PREVIEW_LINES, FILE_PREVIEW_LINES]);
++    // The whole review file ends with its file pattern, which the cut hides.
++    expect(fileText()).not.toContain("--file-pattern=");
++    expect(copied().every((c) => c.includes("--file-pattern="))).toBe(true);
++
++    const showAll = button("gitops.setup.files.show-all");
++    expect(showAll?.getAttribute("aria-expanded")).toBe("false");
++    await click(showAll);
++    const [review, deploy] = shownLines();
++    expect(review).toBeGreaterThan(FILE_PREVIEW_LINES);
++    expect(deploy).toBe(FILE_PREVIEW_LINES);
++    expect(fileText()).toContain("--file-pattern=");
++
++    await click(button("common.show-less"));
++    expect(shownLines()).toEqual([FILE_PREVIEW_LINES, FILE_PREVIEW_LINES]);
++  });
++
++  test("a file within the limit shows in full with no action", async () => {
++    await openStep3(NEW_CI);
++    // GitLab: the workflow file, then the two include lines.
++    expect(container.querySelectorAll("pre")).toHaveLength(2);
++    expect(
++      container.querySelectorAll('[data-slot="code-block-footer"]')
++    ).toHaveLength(1);
++    expect(container.querySelectorAll("pre")[1].textContent).toBe(
++      "include:\n  - local: bytebase.gitlab-ci.yml"
++    );
++  });
++
++  test("a file's header bar names its path and nothing else", async () => {
++    await openStep3(NEW_CI);
++    const headers = [
++      ...container.querySelectorAll('[data-slot="code-block-header"]'),
++    ].map((header) => header.firstElementChild?.textContent);
++    expect(headers).toEqual(["bytebase.gitlab-ci.yml", ".gitlab-ci.yml"]);
++    for (const header of container.querySelectorAll(
++      '[data-slot="code-block-header"]'
++    )) {
++      expect(header.querySelectorAll("span")).toHaveLength(1);
++    }
++  });
++
++  test("the scope line shows on every step", async () => {
++    setProject({
++      groups: 1,
++      databases: [databaseOf("shop", "environments/prod")],
++      identities: [DEPLOY_CI],
++      members: [DEPLOY_CI],
++    });
++    await render();
++
++    expect(container.textContent).toContain("gitops.setup.scope");
++    await click(continueButton());
++    expect(container.textContent).toContain("gitops.setup.scope");
++    await click(continueButton());
++    expect(currentStep()).toBe("gitops.setup.steps.workflow-files");
++    expect(container.textContent).toContain("gitops.setup.scope");
++  });
++
++  test("the footer holds Continue on steps 1 and 2 and only Back on step 3", async () => {
++    await openStep3(DEPLOY_CI);
++    expect(footerButtons()).toEqual(["common.back"]);
++
++    await click(button("common.back"));
++    expect(footerButtons()).toEqual(["common.back", "gitops.setup.continue"]);
++    await click(button("common.back"));
++    expect(footerButtons()).toEqual(["gitops.setup.continue"]);
++  });
++});
+diff --git a/frontend/src/routes/project/ProjectGitOpsPage.tsx b/frontend/src/routes/project/ProjectGitOpsPage.tsx
+index 1edb628..c8d83e1 100644
+--- a/frontend/src/routes/project/ProjectGitOpsPage.tsx
++++ b/frontend/src/routes/project/ProjectGitOpsPage.tsx
+@@ -1,700 +1,384 @@
+-import {
+-  ArrowLeft,
+-  Check,
+-  ChevronDown,
+-  ChevronRight,
+-  XCircle,
+-} from "lucide-react";
++import { ArrowLeft } from "lucide-react";
+ import { useEffect, useMemo, useState } from "react";
+-import { useTranslation } from "react-i18next";
+-import { PROJECT_V1_ROUTE_RELEASES } from "@/app/router/handles";
+-import gitopsWorkflowImage from "@/assets/gitops-workflow.svg";
+-import { DatabaseSelect } from "@/components/DatabaseSelect";
++import { Trans, useTranslation } from "react-i18next";
++import {
++  PROJECT_V1_ROUTE_DATABASES,
++  PROJECT_V1_ROUTE_RELEASES,
++} from "@/app/router/handles";
+ import { ExternalUrlAlert } from "@/components/ExternalUrlAlert";
+-import { PermissionGuard } from "@/components/PermissionGuard";
+ import { ProjectPageLayout } from "@/components/ProjectPageLayout";
+ import { RouterLink } from "@/components/RouterLink";
+ import { Alert } from "@/components/ui/alert";
+ import { Button } from "@/components/ui/button";
+-import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
+-import { CopyButton } from "@/components/ui/copy-button";
+-import { Switch } from "@/components/ui/switch";
+-import { Tabs, TabsList, TabsPanel, TabsTrigger } from "@/components/ui/tabs";
++import { StepIndicator } from "@/components/ui/step-indicator";
++import { StickyActionFooter } from "@/components/ui/sticky-action-footer";
+ import { WorkloadIdentityDialog } from "@/components/WorkloadIdentityFlow/WorkloadIdentityDialog";
++import { useServerState } from "@/hooks/useAppState";
+ import { useProjectByName } from "@/hooks/useProjectByName";
+-import { cn } from "@/lib/utils";
+ import { useAppStore } from "@/stores/app";
+-import { extractWorkloadIdentityId } from "@/stores/app/workloadIdentity";
+ import { projectNamePrefix } from "@/stores/modules/v1/common";
+-import { DatabaseGroupView } from "@/types/proto-es/v1/database_group_service_pb";
++import {
++  type DatabaseGroup,
++  DatabaseGroupView,
++} from "@/types/proto-es/v1/database_group_service_pb";
++import type { Database } from "@/types/proto-es/v1/database_service_pb";
+ import type { WorkloadIdentity } from "@/types/proto-es/v1/workload_identity_service_pb";
+-import { WorkloadIdentityConfig_ProviderType } from "@/types/proto-es/v1/workload_identity_service_pb";
++import { getDefaultPagination, hasProjectPermissionV2 } from "@/utils";
++import { DatabasesStep, type TargetTab } from "./gitops-setup/DatabasesStep";
+ import {
+-  getWorkloadIdentityProviderText,
+-  hasProjectPermissionV2,
+-  parseWorkloadIdentitySubjectPattern,
+-} from "@/utils";
++  repositoriesOf,
++  repositoryUrlOf,
++  useIdentityRoles,
++  workflowProviderOf,
++} from "./gitops-setup/identity";
++import { useDeployTargets } from "./gitops-setup/useDeployTargets";
++import { WorkflowFilesStep } from "./gitops-setup/WorkflowFilesStep";
++import { WorkloadIdentityStep } from "./gitops-setup/WorkloadIdentityStep";
+ import {
+   bytebaseActionImage,
+-  generateGithubReleaseYaml,
+-  generateGithubSqlReviewYaml,
+-  generateGitlabCiYaml,
++  DEFAULT_MIGRATION_FOLDER,
++  EXTERNAL_URL_PLACEHOLDER,
++  generateWorkflowFiles,
+ } from "./gitopsWorkflowYaml";
+-import { WorkloadIdentitySelect } from "./WorkloadIdentitySelect";
+ 
++// The same guide the Releases page links to.
++const GITOPS_DOCS_URL =
++  "https://docs.bytebase.com/gitops/overview?source=console";
++
++const DATABASES = 0;
++const WORKLOAD_IDENTITY = 1;
++const WORKFLOW_FILES = 2;
++
++// What the page reads once when it opens: enough to know the preconditions and
++// to pick a lone group, database or identity. A list that fails to load is
++// undefined, and its precondition is not shown.
++interface SetupData {
++  groups: DatabaseGroup[];
++  // The first page of the project's databases.
++  databases: Database[] | undefined;
++  databasesComplete: boolean;
++  // The first page of the project's workload identities.
++  identities: WorkloadIdentity[] | undefined;
++  identitiesComplete: boolean;
++}
++
++// The GitOps page is the setup: three steps that end with the workflow files
++// the owner adds to the repository. Bytebase saves nothing.
+ export function ProjectGitOpsPage({ projectId }: { projectId: string }) {
+   const { t } = useTranslation();
+-  const serverInfo = useAppStore((s) => s.serverInfo);
+-  const projectsByName = useAppStore((s) => s.projectsByName);
+-  const fetchWorkloadIdentity = useAppStore(
+-    (state) => state.fetchWorkloadIdentity
+-  );
+-
+   const projectName = `${projectNamePrefix}${projectId}`;
+-  // subscribe to re-render on project cache change
+-  void projectsByName;
+   const project = useProjectByName(projectName);
+-
+-  const [showCreateDrawer, setShowCreateDrawer] = useState(false);
+-  const [selectedIdentityName, setSelectedIdentityName] = useState("");
+-  const [selectedDatabaseNames, setSelectedDatabaseNames] = useState<string[]>(
+-    []
++  const { serverInfo, externalUrl, needConfigureExternalUrl } =
++    useServerState();
++  const fetchWorkloadIdentity = useAppStore(
++    (state) => state.fetchWorkloadIdentity
+   );
+-  const [selectedDatabaseGroupName, setSelectedDatabaseGroupName] =
+-    useState("");
+-  const [targetTab, setTargetTab] = useState<"GROUP" | "DATABASE">("GROUP");
+-  const [activeTab, setActiveTab] = useState("github");
+-  const [useSelfhostRunner, setUseSelfhostRunner] = useState(false);
+-  const [showSqlReviewYaml, setShowSqlReviewYaml] = useState(true);
+-  const [showReleaseYaml, setShowReleaseYaml] = useState(true);
+-  const [showGitlabCiYaml, setShowGitlabCiYaml] = useState(true);
+ 
+-  const selectedIdentity = useAppStore((state) =>
+-    selectedIdentityName
+-      ? state.getWorkloadIdentity(selectedIdentityName)
+-      : undefined
+-  );
++  const [data, setData] = useState<SetupData>();
++  const [step, setStep] = useState(DATABASES);
++  const [tab, setTab] = useState<TargetTab>("group");
++  const [groupName, setGroupName] = useState("");
++  const [databaseNames, setDatabaseNames] = useState<string[]>([]);
++  const [identityName, setIdentityName] = useState("");
++  const [folder, setFolder] = useState(DEFAULT_MIGRATION_FOLDER);
++  const [dialogOpen, setDialogOpen] = useState(false);
+ 
+-  // Database group options
+-  const [dbGroupOptions, setDbGroupOptions] = useState<ComboboxOption[]>([]);
+   useEffect(() => {
+-    useAppStore
+-      .getState()
+-      .fetchDBGroupListByProjectName(projectName, DatabaseGroupView.BASIC)
+-      .then((groups) => {
+-        setDbGroupOptions(
+-          groups.map((g) => ({
+-            value: g.name,
+-            label: g.title || g.name,
+-          }))
+-        );
+-      })
+-      .catch(() => {});
++    let cancelled = false;
++    const store = useAppStore.getState();
++    const pageSize = getDefaultPagination();
++    void Promise.all([
++      store
++        .fetchDBGroupListByProjectName(projectName, DatabaseGroupView.BASIC)
++        .catch(() => [] as DatabaseGroup[]),
++      store
++        .fetchDatabases({ parent: projectName, pageSize, silent: true })
++        .catch(() => undefined),
++      store
++        .listWorkloadIdentities({
++          parent: projectName,
++          pageSize,
++          showDeleted: false,
++          silent: true,
++        })
++        .catch(() => undefined),
++      store.loadProjectIamPolicy(projectName, true),
++    ]).then(([groups, databasePage, identityPage]) => {
++      if (cancelled) return;
++      const next: SetupData = {
++        groups,
++        databases: databasePage?.databases,
++        databasesComplete: databasePage?.nextPageToken === "",
++        identities: identityPage?.workloadIdentities,
++        identitiesComplete: identityPage?.nextPageToken === "",
++      };
++      setData(next);
++      // A lone group, database or identity is already picked.
++      if (groups.length > 0) {
++        setTab("group");
++        if (groups.length === 1) setGroupName(groups[0].name);
++      } else {
++        setTab("databases");
++        const lone = next.databasesComplete ? next.databases : undefined;
++        if (lone?.length === 1 && lone[0].effectiveEnvironment) {
++          setDatabaseNames([lone[0].name]);
++        }
++      }
++      const identities = next.identitiesComplete ? next.identities : undefined;
++      if (identities?.length === 1 && workflowProviderOf(identities[0])) {
++        setIdentityName(identities[0].name);
++      }
++    });
++    return () => {
++      cancelled = true;
++    };
+   }, [projectName]);
+ 
+-  // Fetch the selected identity into the store cache so getWorkloadIdentity
+-  // returns the real object (with workloadIdentityConfig) instead of a stub.
+-  useEffect(() => {
+-    if (selectedIdentityName) {
+-      fetchWorkloadIdentity(selectedIdentityName).catch(() => {});
+-    }
+-  }, [selectedIdentityName, fetchWorkloadIdentity]);
+-
+-  const selectedConfig = selectedIdentity?.workloadIdentityConfig;
+-  const selectedProviderType =
+-    selectedConfig?.providerType ??
+-    WorkloadIdentityConfig_ProviderType.PROVIDER_TYPE_UNSPECIFIED;
+-
+-  // Sync active tab with selected identity provider
++  // Load the picked identity into the store, so its config is known.
+   useEffect(() => {
+-    if (selectedProviderType === WorkloadIdentityConfig_ProviderType.GITLAB) {
+-      setActiveTab("gitlab");
+-    } else if (
+-      selectedProviderType === WorkloadIdentityConfig_ProviderType.GITHUB
+-    ) {
+-      setActiveTab("github");
+-    }
+-  }, [selectedProviderType]);
+-
+-  const parsedSubject = useMemo(() => {
+-    if (!selectedIdentity) return undefined;
+-    return parseWorkloadIdentitySubjectPattern(selectedIdentity);
+-  }, [selectedIdentity]);
+-
+-  const repoUrl = useMemo(() => {
+-    const parsed = parsedSubject;
+-    if (!parsed?.owner || !parsed.repo) return "";
+-    if (selectedProviderType === WorkloadIdentityConfig_ProviderType.GITHUB) {
+-      return `https://github.com/${parsed.owner}/${parsed.repo}`;
+-    }
+-    if (selectedProviderType === WorkloadIdentityConfig_ProviderType.GITLAB) {
+-      const issuer = selectedConfig?.issuerUrl ?? "https://gitlab.com";
+-      const base = issuer.replace(/\/$/, "");
+-      return `${base}/${parsed.owner}/${parsed.repo}`;
+-    }
+-    return "";
+-  }, [parsedSubject, selectedConfig, selectedProviderType]);
+-
+-  const branch = parsedSubject?.branch || "main";
+-
+-  const bytebaseUrl = useMemo(
+-    () => (serverInfo?.externalUrl ?? "").replace(/\/$/, ""),
+-    [serverInfo]
++    if (identityName) void fetchWorkloadIdentity(identityName).catch(() => {});
++  }, [identityName, fetchWorkloadIdentity]);
++  const identity = useAppStore((state) =>
++    identityName ? state.getWorkloadIdentity(identityName) : undefined
+   );
++  const provider = workflowProviderOf(identity);
++  const roles = useIdentityRoles(projectName, identity);
+ 
+-  const actionImage = bytebaseActionImage(serverInfo?.version ?? "");
+-
+-  const workloadIdentityEmail = selectedIdentityName
+-    ? extractWorkloadIdentityId(selectedIdentityName)
+-    : "{WORKLOAD_IDENTITY_EMAIL}";
+-
+-  const hasTargetSelected =
+-    targetTab === "GROUP"
+-      ? !!selectedDatabaseGroupName
+-      : selectedDatabaseNames.length > 0;
+-
+-  const targetsString = useMemo(() => {
+-    if (targetTab === "GROUP" && selectedDatabaseGroupName) {
+-      return selectedDatabaseGroupName;
+-    }
+-    if (selectedDatabaseNames.length === 0) return "";
+-    return selectedDatabaseNames.join(",");
+-  }, [targetTab, selectedDatabaseGroupName, selectedDatabaseNames]);
+-
+-  const targetsPlaceholder =
+-    targetsString ||
+-    `projects/${projectId}/instances/{instance}/databases/{database}`;
+-  const runsOn = useSelfhostRunner ? "self-hosted" : "ubuntu-latest";
+-
+-  const handleTargetTabChange = (tab: "GROUP" | "DATABASE") => {
+-    setTargetTab(tab);
+-    if (tab === "GROUP") {
+-      setSelectedDatabaseNames([]);
+-    } else {
+-      setSelectedDatabaseGroupName("");
+-    }
+-  };
+-
+-  const handleWorkloadIdentityCreated = (wi: WorkloadIdentity) => {
+-    setSelectedIdentityName(wi.name);
+-  };
+-
+-  const canCreateWorkloadIdentity = project
+-    ? hasProjectPermissionV2(project, "bb.workloadIdentities.create")
+-    : false;
+-
+-  // --- YAML generation ---
+-  const githubSqlReviewYaml = useMemo(
++  const pick = useMemo(
+     () =>
+-      generateGithubSqlReviewYaml({
+-        branch,
+-        runsOn,
+-        bytebaseUrl,
+-        actionImage,
+-        workloadIdentityEmail,
+-        projectId,
+-        targetsPlaceholder,
+-      }),
+-    [
+-      branch,
+-      runsOn,
+-      bytebaseUrl,
+-      actionImage,
+-      workloadIdentityEmail,
+-      projectId,
+-      targetsPlaceholder,
+-    ]
++      tab === "group"
++        ? { kind: "group" as const, name: groupName }
++        : { kind: "databases" as const, names: databaseNames },
++    [tab, groupName, databaseNames]
+   );
++  const targets = useDeployTargets(pick);
+ 
+-  const githubReleaseYaml = useMemo(
+-    () =>
+-      generateGithubReleaseYaml({
+-        branch,
+-        runsOn,
+-        bytebaseUrl,
+-        actionImage,
+-        workloadIdentityEmail,
+-        projectId,
+-        targetsPlaceholder,
+-      }),
+-    [
+-      branch,
+-      runsOn,
+-      bytebaseUrl,
+-      actionImage,
+-      workloadIdentityEmail,
+-      projectId,
+-      targetsPlaceholder,
+-    ]
++  const canCreateIdentity = hasProjectPermissionV2(
++    project,
++    "bb.workloadIdentities.create"
+   );
+-
+-  const gitlabCiYaml = useMemo(
+-    () =>
+-      generateGitlabCiYaml({
+-        branch,
+-        bytebaseUrl,
+-        actionImage,
+-        workloadIdentityEmail,
+-        projectId,
+-        targetsPlaceholder,
+-      }),
+-    [
+-      branch,
+-      bytebaseUrl,
+-      actionImage,
+-      workloadIdentityEmail,
++  const noDatabase = data?.databases?.length === 0;
++  const noIdentity =
++    data?.identities?.length === 0 && !identityName && !canCreateIdentity;
++  // On a project with more databases than one page, a database with an
++  // environment may be on a later page, so the picker stays.
++  const noPickableDatabase =
++    data?.databasesComplete === true &&
++    (data.databases ?? []).every((database) => !database.effectiveEnvironment);
++
++  const urlMissing = needConfigureExternalUrl || externalUrl === "";
++  const files = useMemo(() => {
++    if (!provider || !identity) return [];
++    return generateWorkflowFiles({
++      provider,
++      bytebaseUrl: urlMissing
++        ? EXTERNAL_URL_PLACEHOLDER
++        : externalUrl.replace(/\/$/, ""),
++      actionImage: bytebaseActionImage(serverInfo?.version ?? ""),
++      workloadIdentityEmail: identity.email,
+       projectId,
+-      targetsPlaceholder,
+-    ]
+-  );
+-
+-  const providerMismatchGithub =
+-    selectedConfig &&
+-    activeTab === "github" &&
+-    selectedProviderType !== WorkloadIdentityConfig_ProviderType.GITHUB;
+-  const providerMismatchGitlab =
+-    selectedConfig &&
+-    activeTab === "gitlab" &&
+-    selectedProviderType !== WorkloadIdentityConfig_ProviderType.GITLAB;
+-
+-  return (
+-    <ProjectPageLayout className="gap-y-1">
+-      <RouterLink
+-        to={{ name: PROJECT_V1_ROUTE_RELEASES, params: { projectId } }}
+-        className="mb-2 inline-flex items-center gap-x-1 self-start text-sm text-accent hover:underline"
+-      >
+-        <ArrowLeft className="size-4" />
+-        {t("gitops.back-to-releases")}
+-      </RouterLink>
+-      {/* Section 1: What is GitOps */}
+-      <div className="flex flex-col gap-y-3 rounded-sm border border-block-border p-6">
+-        <div className="flex flex-col gap-y-1">
+-          <h2 className="text-lg font-medium">{t("gitops.overview.title")}</h2>
+-          <p className="textinfolabel">{t("gitops.overview.description")}</p>
+-          <p className="textinfolabel">
+-            {t("gitops.overview.description-git")}
+-          </p>
+-        </div>
+-        <img
+-          src={gitopsWorkflowImage}
+-          alt="GitOps Workflow"
+-          className="w-full max-w-4xl object-contain my-2"
+-        />
+-        <div>
+-          <a
+-            href="https://docs.bytebase.com/gitops/overview?source=console"
+-            target="_blank"
+-            rel="noreferrer"
+-            className="text-accent hover:underline"
+-          >
+-            {t("gitops.documentation")} {"\u2192"}
+-          </a>
+-        </div>
+-      </div>
+-
+-      <span className="mx-auto w-0.5 h-8 bg-block-border" aria-hidden="true" />
+-
+-      {/* Section 2: Checks before we start */}
+-      <div className="flex flex-col gap-y-3 rounded-sm border border-block-border p-6">
+-        <h2 className="text-lg font-medium">{t("gitops.checklist.title")}</h2>
+-
+-        <Alert
+-          variant="info"
+-          description={
+-            <span>
+-              {t("gitops.checklist.wif-notice-text")}{" "}
+-              <a
+-                href="https://docs.bytebase.com/tutorials/gitops-bitbucket-workflow?source=console"
+-                target="_blank"
+-                rel="noreferrer"
+-                className="text-accent hover:underline"
+-              >
+-                Bitbucket
+-              </a>{" "}
+-              /{" "}
+-              <a
+-                href="https://docs.bytebase.com/tutorials/gitops-azure-devops-workflow?source=console"
+-                target="_blank"
+-                rel="noreferrer"
+-                className="text-accent hover:underline"
+-              >
+-                Azure DevOps
+-              </a>{" "}
+-              {t("gitops.checklist.wif-notice-suffix")}
+-            </span>
+-          }
+-        />
+-
+-        {/* Check 1: External URL */}
+-        <div className="flex items-start gap-x-3 py-3">
+-          <CheckOrX ok={!!bytebaseUrl} />
+-          <div className="flex flex-col flex-1 gap-y-1">
+-            <span className="text-sm font-medium">
+-              {t("gitops.checklist.external-url")}
+-            </span>
+-            {bytebaseUrl ? (
+-              <span className="text-sm text-control-light">{bytebaseUrl}</span>
+-            ) : (
+-              <MissingExternalURLAttention />
+-            )}
+-          </div>
+-        </div>
++      targets: pick.kind === "group" ? [pick.name] : pick.names,
++      environments: targets.stages.map((stage) => stage.id),
++      folder,
++    });
++  }, [
++    provider,
++    identity,
++    urlMissing,
++    externalUrl,
++    serverInfo,
++    projectId,
++    pick,
++    targets.stages,
++    folder,
++  ]);
++
++  // A step can be opened once every step before it is complete.
++  const databasesDone =
++    (tab === "group" ? groupName !== "" : databaseNames.length > 0) &&
++    !targets.loading &&
++    targets.stages.length > 0;
++  const identityDone =
++    identity !== undefined &&
++    provider !== undefined &&
++    (roles === undefined || roles.length > 0);
++  const lastOpenable = !databasesDone
++    ? DATABASES
++    : !identityDone
++      ? WORKLOAD_IDENTITY
++      : WORKFLOW_FILES;
++  const canContinue = step < lastOpenable;
++  const goTo = (index: number) => {
++    if (index <= lastOpenable) setStep(index);
++  };
+ 
+-        {/* Check 2: Workload Identity */}
+-        <div className="flex items-start gap-x-3 py-3">
+-          <CheckOrX ok={!!selectedIdentityName} />
+-          <div className="flex flex-col gap-y-2 flex-1">
+-            <span className="text-sm font-medium">
+-              {t("gitops.checklist.workload-identity")}
+-            </span>
+-            <div className="flex items-center gap-x-3">
+-              <WorkloadIdentitySelect
+-                projectName={projectName}
+-                value={selectedIdentityName}
+-                placeholder={t("gitops.workload-identity.select-placeholder")}
+-                onChange={(name) => setSelectedIdentityName(name)}
+-                className="max-w-lg"
+-              />
+-              <PermissionGuard
+-                permissions={["bb.workloadIdentities.create"]}
+-                project={project}
+-              >
+-                <Button
+-                  appearance="outline"
+-                  disabled={!canCreateWorkloadIdentity}
+-                  onClick={() => setShowCreateDrawer(true)}
+-                >
+-                  {t("common.create")}
+-                </Button>
+-              </PermissionGuard>
+-            </div>
+-            {repoUrl && (
+-              <a
+-                href={repoUrl}
+-                target="_blank"
+-                rel="noreferrer"
+-                className="text-sm text-accent hover:underline"
+-              >
+-                {repoUrl} {"\u2192"}
+-              </a>
+-            )}
+-          </div>
+-        </div>
++  const steps = [
++    { key: DATABASES, title: t("gitops.setup.steps.databases") },
++    {
++      key: WORKLOAD_IDENTITY,
++      title: t("gitops.setup.steps.workload-identity"),
++    },
++    { key: WORKFLOW_FILES, title: t("gitops.setup.steps.workflow-files") },
++  ];
++
++  const handleCreated = (wi: WorkloadIdentity) => {
++    setIdentityName(wi.name);
++  };
+ 
+-        {/* Check 3: Target Databases */}
+-        <div className="flex items-start gap-x-3 py-3">
+-          <CheckOrX ok={hasTargetSelected} />
+-          <div className="flex flex-col gap-y-2 flex-1">
+-            <span className="text-sm font-medium">
+-              {t("gitops.checklist.target-databases")}
+-            </span>
+-            <div className="flex gap-x-0">
+-              <Button
+-                appearance={targetTab === "GROUP" ? "solid" : "outline"}
+-                size="sm"
+-                className="rounded-r-none"
+-                onClick={() => handleTargetTabChange("GROUP")}
+-              >
+-                {t("common.database-group")}
+-              </Button>
+-              <Button
+-                appearance={targetTab === "DATABASE" ? "solid" : "outline"}
+-                size="sm"
+-                className="rounded-l-none"
+-                onClick={() => handleTargetTabChange("DATABASE")}
+-              >
+-                {t("common.databases")}
+-              </Button>
+-            </div>
+-            <div className="max-w-lg">
+-              {targetTab === "GROUP" ? (
+-                <>
+-                  <Combobox
+-                    value={selectedDatabaseGroupName}
+-                    options={dbGroupOptions}
+-                    placeholder={t("database-group.select")}
+-                    onChange={setSelectedDatabaseGroupName}
+-                  />
+-                  <p className="text-xs text-control-light mt-1">
+-                    {t("gitops.checklist.database-group-recommendation")}
+-                  </p>
+-                </>
+-              ) : (
+-                <DatabaseSelect
+-                  multiple
+-                  value={selectedDatabaseNames}
+-                  onChange={(names) => setSelectedDatabaseNames(names)}
+-                  projectName={projectName}
+-                />
+-              )}
+-            </div>
+-            {targetsString && (
+-              <p className="text-sm text-control-light">
+-                <span className="font-medium">targets:</span>{" "}
+-                <code className="rounded-xs bg-control-bg px-1 py-0.5 text-xs">
+-                  {targetsString}
+-                </code>
+-              </p>
+-            )}
+-          </div>
+-        </div>
+-      </div>
++  const repositories = identity ? repositoriesOf(identity) : undefined;
+ 
+-      <span className="mx-auto w-0.5 h-8 bg-block-border" aria-hidden="true" />
++  return (
++    <ProjectPageLayout>
++      <div className="mx-auto flex w-full max-w-[1040px] flex-col gap-y-4 pb-4">
++        <RouterLink
++          to={{ name: PROJECT_V1_ROUTE_RELEASES, params: { projectId } }}
++          className="inline-flex items-center gap-x-1 self-start text-sm text-accent hover:underline"
++        >
++          <ArrowLeft className="size-4" />
++          {t("gitops.back-to-releases")}
++        </RouterLink>
+ 
+-      {/* Section 3: Workflow file generation */}
+-      <div className="flex flex-col gap-y-3 rounded-sm border border-block-border p-6">
+         <div className="flex flex-col gap-y-1">
+-          <h2 className="text-lg font-medium">{t("gitops.workflow.title")}</h2>
++          <h1 className="text-lg font-semibold text-main">
++            {t("gitops.setup.title")}
++          </h1>
++          <p className="text-sm text-control-light">
++            {t("gitops.setup.outcome")}
++          </p>
+           <p className="text-sm text-control-light">
+-            {t("gitops.workflow.description")}
++            <Trans
++              i18nKey="gitops.setup.scope"
++              components={{ docs: <DocsLink /> }}
++            />
+           </p>
+         </div>
+ 
+-        <Tabs value={activeTab} onValueChange={setActiveTab}>
+-          <TabsList>
+-            <TabsTrigger value="github" className="w-[140px] justify-center">
+-              GitHub Actions
+-            </TabsTrigger>
+-            <TabsTrigger value="gitlab" className="w-[140px] justify-center">
+-              GitLab CI
+-            </TabsTrigger>
+-          </TabsList>
++        <ExternalUrlAlert variant="warning">
++          <p className="text-sm">
++            {t("gitops.setup.external-url-description")}
++          </p>
++        </ExternalUrlAlert>
+ 
+-          <TabsPanel value="github">
+-            {providerMismatchGithub && (
+-              <Alert
+-                variant="error"
+-                className="mb-3"
+-                description={t("gitops.workflow.provider-not-match", {
+-                  provider: getWorkloadIdentityProviderText(
+-                    selectedProviderType,
+-                    t("settings.members.workload-identity-generic-oidc")
+-                  ),
+-                })}
+-              />
+-            )}
+-            <div className="flex items-center gap-x-2 my-3">
+-              <span className="text-sm">
+-                {t("gitops.workflow.self-hosted-runner")}
+-              </span>
+-              <Switch
+-                checked={useSelfhostRunner}
+-                onCheckedChange={setUseSelfhostRunner}
++        {noDatabase ? (
++          <Alert
++            variant="warning"
++            title={t("gitops.setup.no-database.title")}
++            description={t("gitops.setup.no-database.description")}
++          >
++            <RouterLink
++              to={{ name: PROJECT_V1_ROUTE_DATABASES, params: { projectId } }}
++              className="text-sm font-medium text-accent hover:underline"
++            >
++              {t("gitops.setup.databases.view-databases")}
++            </RouterLink>
++          </Alert>
++        ) : noIdentity ? (
++          <Alert
++            variant="warning"
++            title={t("gitops.setup.no-identity.title")}
++            description={t("gitops.setup.no-identity.description")}
++          />
++        ) : (
++          data && (
++            <>
++              <StepIndicator
++                steps={steps}
++                currentIndex={step}
++                fitOneRow
++                onStepClick={goTo}
+               />
+-            </div>
+-
+-            <CollapsibleCode
+-              label={
+-                <FileHintLabel
+-                  filePath=".github/workflows/sql-review.yml"
+-                  repository={parsedSubject?.repo}
++              {step === DATABASES && (
++                <DatabasesStep
++                  projectId={projectId}
++                  projectName={projectName}
++                  groups={data.groups}
++                  noPickableDatabase={noPickableDatabase}
++                  tab={tab}
++                  onTabChange={setTab}
++                  groupName={groupName}
++                  onGroupChange={setGroupName}
++                  databaseNames={databaseNames}
++                  onDatabasesChange={setDatabaseNames}
++                  targets={targets}
+                 />
+-              }
+-              code={githubSqlReviewYaml}
+-              open={showSqlReviewYaml}
+-              onToggle={() => setShowSqlReviewYaml(!showSqlReviewYaml)}
+-            />
+-
+-            <CollapsibleCode
+-              label={
+-                <FileHintLabel
+-                  filePath=".github/workflows/release.yml"
+-                  repository={parsedSubject?.repo}
++              )}
++              {step === WORKLOAD_IDENTITY && (
++                <WorkloadIdentityStep
++                  projectId={projectId}
++                  projectName={projectName}
++                  hasIdentities={(data.identities?.length ?? 1) > 0}
++                  canCreate={canCreateIdentity}
++                  identityName={identityName}
++                  identity={identity}
++                  roles={roles}
++                  onChange={setIdentityName}
++                  onCreate={() => setDialogOpen(true)}
+                 />
+-              }
+-              code={githubReleaseYaml}
+-              open={showReleaseYaml}
+-              onToggle={() => setShowReleaseYaml(!showReleaseYaml)}
+-              className="mt-4"
+-            />
+-          </TabsPanel>
+-
+-          <TabsPanel value="gitlab">
+-            {providerMismatchGitlab && (
+-              <Alert
+-                variant="error"
+-                className="mb-3"
+-                description={t("gitops.workflow.provider-not-match", {
+-                  provider: getWorkloadIdentityProviderText(
+-                    selectedProviderType,
+-                    t("settings.members.workload-identity-generic-oidc")
+-                  ),
+-                })}
+-              />
+-            )}
+-            <CollapsibleCode
+-              label={
+-                <FileHintLabel
+-                  filePath=".gitlab-ci.yml"
+-                  repository={parsedSubject?.repo}
++              )}
++              {step === WORKFLOW_FILES && provider && (
++                <WorkflowFilesStep
++                  provider={provider}
++                  folder={folder}
++                  onFolderChange={setFolder}
++                  repositoryName={
++                    repositories?.repo
++                      ? `${repositories.owner}/${repositories.repo}`
++                      : ""
++                  }
++                  repositoryUrl={identity ? repositoryUrlOf(identity) : ""}
++                  files={files}
++                  urlMissing={urlMissing}
+                 />
+-              }
+-              code={gitlabCiYaml}
+-              open={showGitlabCiYaml}
+-              onToggle={() => setShowGitlabCiYaml(!showGitlabCiYaml)}
+-            />
+-          </TabsPanel>
+-        </Tabs>
++              )}
++            </>
++          )
++        )}
+       </div>
+ 
+-      <span className="mx-auto w-0.5 h-8 bg-block-border" aria-hidden="true" />
+-
+-      {/* Section 4: Test your first GitOps migration */}
+-      <div className="flex flex-col gap-y-3 rounded-sm border border-block-border p-6">
+-        <div className="flex flex-col gap-y-1">
+-          <h2 className="text-lg font-medium">
+-            {t("gitops.test-setup.title")}
+-          </h2>
+-          <p className="text-sm text-control-light">
+-            {t("gitops.test-setup.description")}
+-          </p>
+-        </div>
+-
+-        <div className="flex flex-col gap-y-2">
+-          <div className="flex items-center gap-x-2">
+-            <span className="text-sm text-control-light font-bold">
+-              {SAMPLE_FILE_PATH}
+-            </span>
+-          </div>
+-          <CodeBlock code={SAMPLE_SQL} />
+-        </div>
+-
+-        <div className="flex flex-col gap-y-3">
+-          <StepItem number={1}>
+-            {t("gitops.test-setup.step-create-branch", { branch })}
+-          </StepItem>
+-          <StepItem number={2}>
+-            {t("gitops.test-setup.step-sql-review")}
+-          </StepItem>
+-          <StepItem number={3}>{t("gitops.test-setup.step-merge")}</StepItem>
+-        </div>
+-
+-        <p className="text-sm text-control-light">
+-          {t("gitops.test-setup.naming-convention")}
+-        </p>
+-      </div>
++      {data && !noDatabase && !noIdentity && (
++        <StickyActionFooter
++          contentPadding={false}
++          contentClassName="mx-auto w-full max-w-[1040px]"
++          left={
++            step > DATABASES && (
++              <Button appearance="outline" onClick={() => setStep(step - 1)}>
++                <ArrowLeft className="size-4" />
++                {t("common.back")}
++              </Button>
++            )
++          }
++          right={
++            step < WORKFLOW_FILES && (
++              <Button disabled={!canContinue} onClick={() => goTo(step + 1)}>
++                {t("gitops.setup.continue")}
++              </Button>
++            )
++          }
++        />
++      )}
+ 
+       <WorkloadIdentityDialog
+-        open={showCreateDrawer}
++        open={dialogOpen}
+         project={projectName}
+-        onClose={() => setShowCreateDrawer(false)}
+-        onCreated={handleWorkloadIdentityCreated}
++        closeOnCreate
++        gitProvidersOnly
++        onClose={() => setDialogOpen(false)}
++        onCreated={handleCreated}
+       />
+     </ProjectPageLayout>
+   );
+ }
+ 
+-// --- Helper components ---
+-
+-function FileHintLabel({
+-  filePath,
+-  repository,
+-}: {
+-  filePath: string;
+-  repository?: string;
+-}) {
+-  const { t } = useTranslation();
+-  // Split the translated template around placeholders to render bold spans.
+-  const raw = t("gitops.workflow.file-hint", {
+-    filePath: "\x00FP\x00",
+-    repository: "\x00RP\x00",
+-  });
+-  const parts = raw.split("\x00");
++// The link in the scope line, filled in through <Trans components={{ docs }} />.
++function DocsLink({ children }: { readonly children?: React.ReactNode }) {
+   return (
+-    <span>
+-      {parts.map((part, i) =>
+-        part === "FP" ? (
+-          <span key={i} className="font-bold mx-1">
+-            {filePath}
+-          </span>
+-        ) : part === "RP" ? (
+-          <span key={i} className="font-bold mx-1">
+-            {repository}
+-          </span>
+-        ) : (
+-          <span key={i}>{part}</span>
+-        )
+-      )}
+-    </span>
+-  );
+-}
+-
+-function CheckOrX({ ok }: { ok: boolean }) {
+-  return ok ? (
+-    <Check className="w-5 h-5 text-success shrink-0" />
+-  ) : (
+-    <XCircle className="w-5 h-5 text-warning shrink-0" />
++    <a
++      href={GITOPS_DOCS_URL}
++      target="_blank"
++      rel="noopener noreferrer"
++      className="font-medium text-accent hover:underline"
++    >
++      {children}
++    </a>
+   );
+ }
+-
+-function MissingExternalURLAttention() {
+-  return <ExternalUrlAlert className="mt-1" />;
+-}
+-
+-function CodeBlock({ code }: { code: string }) {
+-  return (
+-    <div className="relative rounded-xs bg-control-bg/50 p-4">
+-      <div className="absolute top-2 right-2 p-2">
+-        <CopyButton content={code} size="sm" />
+-      </div>
+-      <div className="overflow-x-auto pr-12">
+-        <pre className="text-sm font-mono whitespace-pre">{code}</pre>
+-      </div>
+-    </div>
+-  );
+-}
+-
+-function CollapsibleCode({
+-  label,
+-  code,
+-  open,
+-  onToggle,
+-  className,
+-}: {
+-  label: React.ReactNode;
+-  code: string;
+-  open: boolean;
+-  onToggle: () => void;
+-  className?: string;
+-}) {
+-  return (
+-    <div className={cn("flex flex-col gap-y-2", className)}>
+-      <div>
+-        <Button appearance="secondary" size="sm" onClick={onToggle}>
+-          {open ? (
+-            <ChevronDown className="w-4 h-4" />
+-          ) : (
+-            <ChevronRight className="w-4 h-4" />
+-          )}
+-          {label}
+-        </Button>
+-      </div>
+-      {open && <CodeBlock code={code} />}
+-    </div>
+-  );
+-}
+-
+-function StepItem({
+-  number,
+-  children,
+-}: {
+-  number: number;
+-  children: React.ReactNode;
+-}) {
+-  return (
+-    <div className="flex items-start gap-x-3">
+-      <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-control-bg-hover text-xs text-control">
+-        {number}
+-      </span>
+-      <p className="text-sm text-control-light">{children}</p>
+-    </div>
+-  );
+-}
+-
+-const SAMPLE_FILE_PATH = "migrations/20240101000000_create_sample_table.sql";
+-const SAMPLE_SQL = `CREATE TABLE sample (
+-    id SERIAL PRIMARY KEY,
+-    name VARCHAR(255) NOT NULL,
+-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+-);`;
+diff --git a/frontend/src/routes/project/gitops-setup/DatabasesStep.tsx b/frontend/src/routes/project/gitops-setup/DatabasesStep.tsx
+new file mode 100644
+index 0000000..512a19c
+--- /dev/null
++++ b/frontend/src/routes/project/gitops-setup/DatabasesStep.tsx
+@@ -0,0 +1,202 @@
++import { useTranslation } from "react-i18next";
++import {
++  PROJECT_V1_ROUTE_DATABASE_GROUP_DETAIL,
++  PROJECT_V1_ROUTE_DATABASE_GROUPS_CREATE,
++  PROJECT_V1_ROUTE_DATABASES,
++} from "@/app/router/handles";
++import { DatabaseSelect } from "@/components/DatabaseSelect";
++import { RouterLink } from "@/components/RouterLink";
++import { Alert } from "@/components/ui/alert";
++import { Badge } from "@/components/ui/badge";
++import { buttonVariants } from "@/components/ui/button";
++import { Combobox } from "@/components/ui/combobox";
++import { Tabs, TabsList, TabsPanel, TabsTrigger } from "@/components/ui/tabs";
++import {
++  Field,
++  StepHeading,
++} from "@/components/WorkloadIdentityFlow/StepParts";
++import { getProjectNameAndDatabaseGroupName } from "@/stores/modules/v1/common";
++import type { DatabaseGroup } from "@/types/proto-es/v1/database_group_service_pb";
++import { DeployOrder } from "./DeployOrder";
++import type { DeployTargets } from "./useDeployTargets";
++
++export type TargetTab = "group" | "databases";
++
++const linkClass = "text-sm font-medium text-accent hover:underline";
++
++// Step 1: the database group, or the databases, GitOps deploys to, and the
++// order the deploy reaches them.
++export function DatabasesStep({
++  projectId,
++  projectName,
++  groups,
++  noPickableDatabase,
++  tab,
++  onTabChange,
++  groupName,
++  onGroupChange,
++  databaseNames,
++  onDatabasesChange,
++  targets,
++}: {
++  readonly projectId: string;
++  readonly projectName: string;
++  readonly groups: DatabaseGroup[];
++  // Every database of the project has no environment.
++  readonly noPickableDatabase: boolean;
++  readonly tab: TargetTab;
++  readonly onTabChange: (tab: TargetTab) => void;
++  readonly groupName: string;
++  readonly onGroupChange: (name: string) => void;
++  readonly databaseNames: string[];
++  readonly onDatabasesChange: (names: string[]) => void;
++  readonly targets: DeployTargets;
++}) {
++  const { t } = useTranslation();
++  const picked = tab === "group" ? groupName !== "" : databaseNames.length > 0;
++  const groupMatchesNone =
++    tab === "group" && picked && !targets.loading && targets.total === 0;
++
++  return (
++    <div className="flex flex-col gap-y-4">
++      <StepHeading
++        question={t("gitops.setup.databases.question")}
++        description={t("gitops.setup.databases.description")}
++      />
++
++      <Tabs
++        value={tab}
++        onValueChange={(value) => onTabChange(value as TargetTab)}
++      >
++        <TabsList>
++          <TabsTrigger value="group">
++            <span className="flex items-center gap-x-2">
++              {t("gitops.setup.databases.group-tab")}
++              <Badge variant="secondary">
++                {t("gitops.setup.databases.recommended")}
++              </Badge>
++            </span>
++          </TabsTrigger>
++          <TabsTrigger value="databases">
++            {t("gitops.setup.databases.databases-tab")}
++          </TabsTrigger>
++        </TabsList>
++
++        <TabsPanel value="group">
++          {groups.length === 0 ? (
++            <div className="flex flex-col items-start gap-y-2 rounded-sm border border-block-border p-4">
++              <p className="text-sm font-medium text-main">
++                {t("gitops.setup.databases.no-group-title")}
++              </p>
++              <p className="text-sm text-control-light">
++                {t("gitops.setup.databases.no-group-description")}
++              </p>
++              <RouterLink
++                to={{
++                  name: PROJECT_V1_ROUTE_DATABASE_GROUPS_CREATE,
++                  params: { projectId },
++                }}
++                className={buttonVariants({
++                  appearance: "outline",
++                  size: "sm",
++                })}
++              >
++                {t("gitops.setup.databases.create-group")}
++              </RouterLink>
++            </div>
++          ) : (
++            <Field
++              label={t("gitops.setup.databases.group-label")}
++              action={groupName && <ViewGroupLink groupName={groupName} />}
++              hint={t("gitops.setup.databases.group-hint")}
++            >
++              {/* The sticky footer would cover an inline menu, so the
++                  pickers on this page render theirs in the overlay layer. */}
++              <Combobox
++                portal
++                value={groupName}
++                options={groups.map((group) => ({
++                  value: group.name,
++                  label: group.title || group.name,
++                }))}
++                placeholder={t("gitops.setup.databases.group-placeholder")}
++                onChange={onGroupChange}
++              />
++            </Field>
++          )}
++        </TabsPanel>
++
++        <TabsPanel value="databases">
++          {noPickableDatabase ? (
++            <Alert
++              variant="warning"
++              title={t("gitops.setup.databases.none-pickable-title")}
++              description={t(
++                "gitops.setup.databases.none-pickable-description"
++              )}
++            >
++              <RouterLink
++                to={{ name: PROJECT_V1_ROUTE_DATABASES, params: { projectId } }}
++                className={linkClass}
++              >
++                {t("gitops.setup.databases.view-databases")}
++              </RouterLink>
++            </Alert>
++          ) : (
++            <Field
++              label={t("gitops.setup.databases.databases-label")}
++              hint={t("gitops.setup.databases.databases-hint")}
++            >
++              <DatabaseSelect
++                portal
++                multiple
++                requireEnvironment
++                projectName={projectName}
++                value={databaseNames}
++                placeholder={t("gitops.setup.databases.databases-placeholder")}
++                onChange={(names) => onDatabasesChange(names)}
++              />
++            </Field>
++          )}
++        </TabsPanel>
++      </Tabs>
++
++      {groupMatchesNone && (
++        <p className="text-sm text-control-light">
++          {t("gitops.setup.databases.group-matches-none")}
++        </p>
++      )}
++
++      {picked && targets.total > 0 && (
++        <section className="flex flex-col gap-y-2">
++          <h4 className="text-sm font-medium text-main">
++            {t("gitops.setup.deploy-order.label")}
++          </h4>
++          <DeployOrder targets={targets} />
++          {targets.stages.length > 0 && (
++            <p className="text-xs text-control-light">
++              {t("gitops.setup.databases.deploy-order-hint")}
++            </p>
++          )}
++        </section>
++      )}
++    </div>
++  );
++}
++
++function ViewGroupLink({ groupName }: { readonly groupName: string }) {
++  const { t } = useTranslation();
++  const [projectId, databaseGroupName] =
++    getProjectNameAndDatabaseGroupName(groupName);
++  return (
++    <RouterLink
++      to={{
++        name: PROJECT_V1_ROUTE_DATABASE_GROUP_DETAIL,
++        params: { projectId, databaseGroupName },
++      }}
++      className={linkClass}
++    >
++      {t("gitops.setup.databases.view-group")}
++    </RouterLink>
++  );
++}
+diff --git a/frontend/src/routes/project/gitops-setup/ProviderLogo.tsx b/frontend/src/routes/project/gitops-setup/ProviderLogo.tsx
+new file mode 100644
+index 0000000..9225d75
+--- /dev/null
++++ b/frontend/src/routes/project/gitops-setup/ProviderLogo.tsx
+@@ -0,0 +1,18 @@
++import githubIcon from "@/assets/git/github.svg";
++import gitlabIcon from "@/assets/git/gitlab.svg";
++import type { WorkflowProvider } from "../gitopsWorkflowYaml";
++
++const LOGOS: Record<WorkflowProvider, string> = {
++  github: githubIcon,
++  gitlab: gitlabIcon,
++};
++
++// The git provider's logo, placed before text that names the provider or one
++// of its repositories. The text carries the meaning, so the image has no name.
++export function ProviderLogo({
++  provider,
++}: {
++  readonly provider: WorkflowProvider;
++}) {
++  return <img src={LOGOS[provider]} alt="" className="size-4 shrink-0" />;
++}
+diff --git a/frontend/src/routes/project/gitops-setup/WorkflowFilesStep.tsx b/frontend/src/routes/project/gitops-setup/WorkflowFilesStep.tsx
+new file mode 100644
+index 0000000..36494a1
+--- /dev/null
++++ b/frontend/src/routes/project/gitops-setup/WorkflowFilesStep.tsx
+@@ -0,0 +1,279 @@
++import { TriangleAlert } from "lucide-react";
++import { useState } from "react";
++import { Trans, useTranslation } from "react-i18next";
++import { Button } from "@/components/ui/button";
++import { CopyButton } from "@/components/ui/copy-button";
++import { Input } from "@/components/ui/input";
++import {
++  Field,
++  InlineCode,
++  StepHeading,
++  TextAction,
++} from "@/components/WorkloadIdentityFlow/StepParts";
++import {
++  DEFAULT_MIGRATION_FOLDER,
++  EXTERNAL_URL_PLACEHOLDER,
++  GITLAB_INCLUDE,
++  isValidMigrationFolder,
++  type WorkflowFile,
++  type WorkflowProvider,
++} from "../gitopsWorkflowYaml";
++import { ProviderLogo } from "./ProviderLogo";
++
++// A file with more lines than this starts cut here, with an action that shows
++// the rest. The step is then short enough to show which files there are.
++export const FILE_PREVIEW_LINES = 12;
++
++// "./db/migrations/" and "db/migrations" name the same folder.
++export const normalizeMigrationFolder = (value: string) =>
++  value.trim().replace(/^\.\//, "").replace(/\/+$/, "");
++
++// Step 3: the files to add to the repository, built from steps 1 and 2.
++export function WorkflowFilesStep({
++  provider,
++  folder,
++  onFolderChange,
++  repositoryName,
++  repositoryUrl,
++  files,
++  urlMissing,
++}: {
++  readonly provider: WorkflowProvider;
++  readonly folder: string;
++  readonly onFolderChange: (folder: string) => void;
++  // Shown only when the workload identity names one repository.
++  readonly repositoryName: string;
++  readonly repositoryUrl: string;
++  readonly files: WorkflowFile[];
++  // The External URL is not set, so the files hold a placeholder.
++  readonly urlMissing: boolean;
++}) {
++  const { t } = useTranslation();
++  const [editing, setEditing] = useState(false);
++  const [draft, setDraft] = useState(folder);
++  const draftValid = isValidMigrationFolder(normalizeMigrationFolder(draft));
++
++  const changeDraft = (value: string) => {
++    setDraft(value);
++    const normalized = normalizeMigrationFolder(value);
++    if (isValidMigrationFolder(normalized)) onFolderChange(normalized);
++  };
++  const reset = () => {
++    setDraft(DEFAULT_MIGRATION_FOLDER);
++    onFolderChange(DEFAULT_MIGRATION_FOLDER);
++    setEditing(false);
++  };
++  const isGitLab = provider === "gitlab";
++  const exampleFile = `${folder}/0001_create_orders.sql`;
++
++  return (
++    <div className="flex flex-col gap-y-4">
++      <StepHeading
++        question={t("gitops.setup.files.heading")}
++        description={t("gitops.setup.files.description")}
++      />
++
++      <Field
++        id="gitops-migration-folder"
++        label={t("gitops.setup.files.folder-label")}
++        action={
++          editing ? (
++            <TextAction onClick={reset}>{t("common.reset")}</TextAction>
++          ) : (
++            <TextAction
++              onClick={() => {
++                setDraft(folder);
++                setEditing(true);
++              }}
++            >
++              {t("common.edit")}
++            </TextAction>
++          )
++        }
++        hint={t("gitops.setup.files.folder-hint")}
++        error={
++          editing && !draftValid
++            ? t("gitops.setup.files.folder-invalid")
++            : undefined
++        }
++      >
++        {editing ? (
++          <Input
++            id="gitops-migration-folder"
++            className="font-mono"
++            value={draft}
++            onChange={(event) => changeDraft(event.target.value)}
++          />
++        ) : (
++          <div className="rounded-sm border border-block-border bg-control-bg/50 px-3 py-2 font-mono text-sm text-main">
++            {folder}/
++          </div>
++        )}
++      </Field>
++
++      {repositoryName && repositoryUrl && (
++        <Field label={t("gitops.setup.files.repository")}>
++          <a
++            href={repositoryUrl}
++            target="_blank"
++            rel="noreferrer"
++            className="inline-flex max-w-full items-center gap-x-1.5 self-start text-sm text-accent hover:underline"
++          >
++            <ProviderLogo provider={provider} />
++            <span className="min-w-0 wrap-anywhere">{repositoryName}</span>
++          </a>
++        </Field>
++      )}
++
++      {urlMissing && (
++        <p className="flex items-start gap-x-2 text-sm text-warning">
++          <TriangleAlert className="mt-0.5 size-4 shrink-0" />
++          <span>
++            <Trans
++              i18nKey="gitops.setup.files.url-missing"
++              values={{ placeholder: EXTERNAL_URL_PLACEHOLDER }}
++              components={{ code: <PlaceholderMark /> }}
++            />
++          </span>
++        </p>
++      )}
++
++      {files.map((file) => (
++        <FileBlock
++          key={file.path}
++          path={file.path}
++          content={file.content}
++          copyOff={urlMissing}
++        />
++      ))}
++      {isGitLab && (
++        <FileBlock
++          path=".gitlab-ci.yml"
++          content={GITLAB_INCLUDE}
++          copyOff={false}
++        />
++      )}
++
++      <section className="flex flex-col gap-y-2 border-t border-block-border pt-4">
++        <h4 className="text-sm font-medium text-main">
++          {t("gitops.setup.files.next-title")}
++        </h4>
++        <p className="text-sm text-control-light">
++          {isGitLab
++            ? t("gitops.setup.files.next-gitlab")
++            : t("gitops.setup.files.next-github")}
++        </p>
++        <p className="text-sm text-control-light">
++          {isGitLab ? (
++            <Trans
++              i18nKey="gitops.setup.files.developers-gitlab"
++              values={{ file: exampleFile }}
++              components={{ code: <InlineCode /> }}
++            />
++          ) : (
++            <Trans
++              i18nKey="gitops.setup.files.developers-github"
++              values={{ file: exampleFile }}
++              components={{ code: <InlineCode /> }}
++            />
++          )}
++        </p>
++      </section>
++    </div>
++  );
++}
++
++function PlaceholderMark({
++  children,
++}: {
++  readonly children?: React.ReactNode;
++}) {
++  return (
++    <mark className="rounded-xs bg-warning/20 px-1 font-mono text-warning">
++      {children}
++    </mark>
++  );
++}
++
++// One file: its path in a header bar with a copy button, then the
++// content, with the External URL placeholder marked. A long file shows its
++// first lines until the owner asks for all of them. Copy takes the whole file
++// either way.
++function FileBlock({
++  path,
++  content,
++  copyOff,
++}: {
++  readonly path: string;
++  readonly content: string;
++  readonly copyOff: boolean;
++}) {
++  const { t } = useTranslation();
++  const [showAll, setShowAll] = useState(false);
++  const lines = content.replace(/\n$/, "").split("\n");
++  const long = lines.length > FILE_PREVIEW_LINES;
++  const cut = long && !showAll;
++  const shown = cut ? lines.slice(0, FILE_PREVIEW_LINES).join("\n") : content;
++  // Each part keyed by where it starts in the shown text.
++  let start = 0;
++  const parts = shown.split(EXTERNAL_URL_PLACEHOLDER).map((text) => {
++    const part = { start, text };
++    start += text.length + EXTERNAL_URL_PLACEHOLDER.length;
++    return part;
++  });
++  return (
++    <div className="overflow-hidden rounded-sm border border-block-border">
++      <div
++        data-slot="code-block-header"
++        className="flex items-center justify-between gap-x-2 border-b border-block-border bg-background py-1.5 pr-2 pl-3"
++      >
++        <span className="min-w-0 font-mono text-xs wrap-anywhere text-main">
++          {path}
++        </span>
++        <div className="shrink-0">
++          <CopyButton
++            content={content}
++            size="sm"
++            disabled={copyOff}
++            label={copyOff ? t("gitops.setup.files.copy-off") : undefined}
++          />
++        </div>
++      </div>
++      <div className="relative">
++        <pre className="overflow-x-auto bg-control-bg p-3 font-mono text-xs whitespace-pre text-main">
++          {parts.map((part) => (
++            <span key={part.start}>
++              {part.start > 0 && (
++                <PlaceholderMark>{EXTERNAL_URL_PLACEHOLDER}</PlaceholderMark>
++              )}
++              {part.text}
++            </span>
++          ))}
++        </pre>
++        {cut && (
++          <div
++            aria-hidden="true"
++            className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-control-bg to-transparent"
++          />
++        )}
++      </div>
++      {long && (
++        <div
++          data-slot="code-block-footer"
++          className="border-t border-block-border bg-background px-1 py-1"
++        >
++          <Button
++            appearance="link"
++            size="xs"
++            aria-expanded={showAll}
++            onClick={() => setShowAll((value) => !value)}
++          >
++            {showAll
++              ? t("common.show-less")
++              : t("gitops.setup.files.show-all", { lines: lines.length })}
++          </Button>
++        </div>
++      )}
++    </div>
++  );
++}
+diff --git a/frontend/src/routes/project/gitops-setup/WorkloadIdentityStep.tsx b/frontend/src/routes/project/gitops-setup/WorkloadIdentityStep.tsx
+new file mode 100644
+index 0000000..a22645c
+--- /dev/null
++++ b/frontend/src/routes/project/gitops-setup/WorkloadIdentityStep.tsx
+@@ -0,0 +1,177 @@
++import { useCallback } from "react";
++import { useTranslation } from "react-i18next";
++import { PROJECT_V1_ROUTE_MEMBERS } from "@/app/router/handles";
++import { RouterLink } from "@/components/RouterLink";
++import { Alert } from "@/components/ui/alert";
++import { Button } from "@/components/ui/button";
++import {
++  Field,
++  StepHeading,
++} from "@/components/WorkloadIdentityFlow/StepParts";
++import type { WorkloadIdentity } from "@/types/proto-es/v1/workload_identity_service_pb";
++import { WorkloadIdentityConfig_ProviderType } from "@/types/proto-es/v1/workload_identity_service_pb";
++import { getWorkloadIdentityProviderText } from "@/utils";
++import { displayRoleTitle } from "@/utils/role";
++import { WorkloadIdentitySelect } from "../WorkloadIdentitySelect";
++import { repositoriesOf, workflowProviderOf } from "./identity";
++import { ProviderLogo } from "./ProviderLogo";
++
++// Step 2: the workload identity the workflow signs in as, and what setup reads
++// from it.
++export function WorkloadIdentityStep({
++  projectId,
++  projectName,
++  hasIdentities,
++  canCreate,
++  identityName,
++  identity,
++  roles,
++  onChange,
++  onCreate,
++}: {
++  readonly projectId: string;
++  readonly projectName: string;
++  // The project has at least one workload identity, or one was just created.
++  readonly hasIdentities: boolean;
++  readonly canCreate: boolean;
++  readonly identityName: string;
++  readonly identity: WorkloadIdentity | undefined;
++  // Undefined when the project's roles cannot be read.
++  readonly roles: string[] | undefined;
++  readonly onChange: (name: string) => void;
++  readonly onCreate: () => void;
++}) {
++  const { t } = useTranslation();
++  const repositoriesText = useRepositoriesText();
++  const disabledReason = useCallback(
++    (wi: WorkloadIdentity) =>
++      workflowProviderOf(wi)
++        ? undefined
++        : t("gitops.setup.identity.other-provider"),
++    [t]
++  );
++  const describe = useCallback(
++    (wi: WorkloadIdentity) =>
++      `${getWorkloadIdentityProviderText(
++        wi.workloadIdentityConfig?.providerType ??
++          WorkloadIdentityConfig_ProviderType.PROVIDER_TYPE_UNSPECIFIED
++      )} · ${repositoriesText(wi)}`,
++    [repositoriesText]
++  );
++
++  const provider = workflowProviderOf(identity);
++
++  const createButton = (appearance: "solid" | "outline") =>
++    canCreate && (
++      <Button appearance={appearance} onClick={onCreate}>
++        {t("gitops.setup.identity.create")}
++      </Button>
++    );
++
++  return (
++    <div className="flex flex-col gap-y-4">
++      <StepHeading
++        question={t("gitops.setup.identity.question")}
++        description={t("gitops.setup.identity.description")}
++      />
++
++      {!hasIdentities && !identityName ? (
++        <div className="flex flex-col items-start gap-y-3 rounded-sm border border-block-border p-4">
++          <p className="text-sm text-control-light">
++            {t("gitops.setup.identity.none")}
++          </p>
++          {createButton("solid")}
++        </div>
++      ) : (
++        <Field label={t("gitops.setup.identity.label")}>
++          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
++            <WorkloadIdentitySelect
++              portal
++              projectName={projectName}
++              value={identityName}
++              placeholder={t("gitops.setup.identity.placeholder")}
++              describe={describe}
++              disabledReason={disabledReason}
++              onChange={(name) => onChange(name)}
++              className="min-w-0 flex-1"
++            />
++            <div className="shrink-0">{createButton("outline")}</div>
++          </div>
++        </Field>
++      )}
++
++      {identity && (
++        <section className="flex flex-col gap-y-2">
++          <h4 className="text-sm font-medium text-main">
++            {t("gitops.setup.identity.read-from")}
++          </h4>
++          <dl className="flex flex-col gap-y-2 rounded-sm border border-block-border bg-control-bg/50 p-3 text-sm">
++            <Fact label={t("gitops.setup.identity.git-provider")}>
++              <span className="flex items-center gap-x-1.5">
++                {provider && <ProviderLogo provider={provider} />}
++                {getWorkloadIdentityProviderText(
++                  identity.workloadIdentityConfig?.providerType ??
++                    WorkloadIdentityConfig_ProviderType.PROVIDER_TYPE_UNSPECIFIED,
++                  t("settings.members.workload-identity-generic-oidc")
++                )}
++              </span>
++            </Fact>
++            <Fact label={t("gitops.setup.identity.repositories")}>
++              {repositoriesText(identity)}
++            </Fact>
++            <Fact label={t("gitops.setup.identity.role")}>
++              {roles === undefined
++                ? t("common.unknown")
++                : roles.length === 0
++                  ? "-"
++                  : roles.map(displayRoleTitle).join(", ")}
++            </Fact>
++          </dl>
++        </section>
++      )}
++
++      {identity && provider && roles?.length === 0 && (
++        <Alert
++          variant="warning"
++          title={t("gitops.setup.identity.no-role-title")}
++          description={t("gitops.setup.identity.no-role-description")}
++        >
++          <RouterLink
++            to={{ name: PROJECT_V1_ROUTE_MEMBERS, params: { projectId } }}
++            className="text-sm font-medium text-accent hover:underline"
++          >
++            {t("gitops.setup.identity.open-members")}
++          </RouterLink>
++        </Alert>
++      )}
++    </div>
++  );
++}
++
++function useRepositoriesText() {
++  const { t } = useTranslation();
++  return useCallback(
++    (identity: WorkloadIdentity) => {
++      const { owner, repo } = repositoriesOf(identity);
++      if (owner && repo) return `${owner}/${repo}`;
++      if (owner) return t("gitops.setup.identity.every-repository", { owner });
++      return identity.workloadIdentityConfig?.subjectPattern || "-";
++    },
++    [t]
++  );
++}
++
++function Fact({
++  label,
++  children,
++}: {
++  readonly label: string;
++  readonly children: React.ReactNode;
++}) {
++  return (
++    <div className="flex flex-col gap-x-4 gap-y-1 sm:flex-row">
++      <dt className="text-control-light sm:w-56 sm:shrink-0">{label}</dt>
++      <dd className="min-w-0 wrap-anywhere text-main">{children}</dd>
++    </div>
++  );
++}
+diff --git a/frontend/src/routes/project/gitops-setup/identity.ts b/frontend/src/routes/project/gitops-setup/identity.ts
+new file mode 100644
+index 0000000..5b04d47
+--- /dev/null
++++ b/frontend/src/routes/project/gitops-setup/identity.ts
+@@ -0,0 +1,78 @@
++import { useMemo } from "react";
++import { useAppStore } from "@/stores/app";
++import { getWorkloadIdentityNameInBinding } from "@/types";
++import {
++  type WorkloadIdentity,
++  WorkloadIdentityConfig_ProviderType,
++} from "@/types/proto-es/v1/workload_identity_service_pb";
++import {
++  isBindingPolicyExpired,
++  parseWorkloadIdentitySubjectPattern,
++} from "@/utils";
++import type { WorkflowProvider } from "../gitopsWorkflowYaml";
++
++// The git provider setup has workflow files for, or undefined for any other
++// OIDC provider.
++export function workflowProviderOf(
++  identity: WorkloadIdentity | undefined
++): WorkflowProvider | undefined {
++  switch (identity?.workloadIdentityConfig?.providerType) {
++    case WorkloadIdentityConfig_ProviderType.GITHUB:
++      return "github";
++    case WorkloadIdentityConfig_ProviderType.GITLAB:
++      return "gitlab";
++    default:
++      return undefined;
++  }
++}
++
++// The repositories an identity lets sign in: one repository, or every
++// repository of an owner when its subject pattern names no repository.
++export function repositoriesOf(identity: WorkloadIdentity): {
++  owner: string;
++  repo: string;
++} {
++  const parsed = parseWorkloadIdentitySubjectPattern(identity);
++  return { owner: parsed?.owner ?? "", repo: parsed?.repo ?? "" };
++}
++
++// The web address of the one repository an identity names, or "" when it
++// trusts every repository of an owner.
++export function repositoryUrlOf(identity: WorkloadIdentity): string {
++  const { owner, repo } = repositoriesOf(identity);
++  if (!owner || !repo) return "";
++  const provider = workflowProviderOf(identity);
++  if (provider === "github") return `https://github.com/${owner}/${repo}`;
++  if (provider === "gitlab") {
++    const issuer =
++      identity.workloadIdentityConfig?.issuerUrl || "https://gitlab.com";
++    return `${issuer.replace(/\/$/, "")}/${owner}/${repo}`;
++  }
++  return "";
++}
++
++// The roles an identity holds in the project, from the project's bindings and
++// the workspace's. Undefined while the project policy cannot be read, so the
++// caller skips the role check instead of reporting a missing role.
++export function useIdentityRoles(
++  projectName: string,
++  identity: WorkloadIdentity | undefined
++): string[] | undefined {
++  const projectPolicy = useAppStore(
++    (state) => state.projectPoliciesByName[projectName]
++  );
++  const workspacePolicy = useAppStore((state) => state.workspacePolicy);
++  return useMemo(() => {
++    if (!identity || !projectPolicy) return undefined;
++    const member = getWorkloadIdentityNameInBinding(identity.email);
++    const roles = new Set<string>();
++    for (const binding of [
++      ...projectPolicy.bindings,
++      ...(workspacePolicy?.bindings ?? []),
++    ]) {
++      if (isBindingPolicyExpired(binding)) continue;
++      if (binding.members.includes(member)) roles.add(binding.role);
++    }
++    return [...roles];
++  }, [identity, projectPolicy, workspacePolicy]);
++}
+diff --git a/frontend/src/routes/project/gitopsWorkflowYaml.test.ts b/frontend/src/routes/project/gitopsWorkflowYaml.test.ts
+index 412cd53..8cbef14 100644
+--- a/frontend/src/routes/project/gitopsWorkflowYaml.test.ts
++++ b/frontend/src/routes/project/gitopsWorkflowYaml.test.ts
+@@ -4,35 +4,11 @@ import {
+   bytebaseActionImage,
+   EXTERNAL_URL_PLACEHOLDER,
+   GITLAB_INCLUDE,
+-  generateGithubReleaseYaml,
+-  generateGithubSqlReviewYaml,
+-  generateGitlabCiYaml,
+   generateWorkflowFiles,
+   isValidMigrationFolder,
+   type WorkflowParams,
+-  type YamlParams,
+ } from "./gitopsWorkflowYaml";
+ 
+-const params: YamlParams = {
+-  branch: "main",
+-  runsOn: "ubuntu-latest",
+-  bytebaseUrl: "https://bytebase.example.com",
+-  actionImage: "bytebase/bytebase-action:cloud",
+-  workloadIdentityEmail: "ci@example.workload.bytebase.com",
+-  projectId: "example",
+-  targetsPlaceholder: "instances/example/databases/example",
+-};
+-
+-// Top-level GitLab job names map to their indented bodies.
+-const gitlabJobs = (yaml: string): Record<string, string> => {
+-  const jobs: Record<string, string> = {};
+-  for (const block of yaml.split(/\n(?=\S)/)) {
+-    const [header, ...body] = block.split("\n");
+-    jobs[header.replace(/:$/, "")] = body.join("\n");
+-  }
+-  return jobs;
+-};
+-
+ describe("bytebaseActionImage", () => {
+   test("uses the cloud image for a Cloud server", () => {
+     expect(bytebaseActionImage("cloud-20261023")).toBe(
+@@ -52,37 +28,6 @@ describe("bytebaseActionImage", () => {
+   });
+ });
+ 
+-describe("generated workflows", () => {
+-  test.each([
+-    ["GitHub SQL review", generateGithubSqlReviewYaml, 1],
+-    ["GitHub release", generateGithubReleaseYaml, 3],
+-    ["GitLab CI", generateGitlabCiYaml, 4],
+-  ])("%s configures every job", (_, generate, jobCount) => {
+-    const yaml = generate(params);
+-    expect(yaml.match(/image: .+/g)).toEqual(
+-      Array(jobCount).fill("image: bytebase/bytebase-action:cloud")
+-    );
+-    // A failed exchange returns no accessToken, so the job must stop there.
+-    expect(yaml.match(/jq -r '\.accessToken \/\/ empty'/g)).toHaveLength(
+-      jobCount
+-    );
+-    expect(yaml.match(/if \[ -z "\$ACCESS_TOKEN" \]; then/g)).toHaveLength(
+-      jobCount
+-    );
+-  });
+-
+-  test("GitLab deploy jobs receive the rollout metadata artifact", () => {
+-    const jobs = gitlabJobs(generateGitlabCiYaml(params));
+-    expect(jobs["create-rollout"]).toContain(
+-      "artifacts:\n    paths: [bytebase-metadata.json]"
+-    );
+-    expect(jobs["deploy-to-test"]).toContain("needs: [create-rollout]");
+-    expect(jobs["deploy-to-prod"]).toContain(
+-      "needs: [create-rollout, deploy-to-test]"
+-    );
+-  });
+-});
+-
+ const workflow: WorkflowParams = {
+   provider: "github",
+   bytebaseUrl: "https://bytebase.example.com",
+diff --git a/frontend/src/routes/project/gitopsWorkflowYaml.ts b/frontend/src/routes/project/gitopsWorkflowYaml.ts
+index a248b37..349d177 100644
+--- a/frontend/src/routes/project/gitopsWorkflowYaml.ts
++++ b/frontend/src/routes/project/gitopsWorkflowYaml.ts
+@@ -252,234 +252,3 @@ ${gitlabRules(p, "$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH")}
+     paths: [bytebase-metadata.json]
+ ${deployJobs.join("")}`;
+ }
+-
+-export interface YamlParams {
+-  branch: string;
+-  runsOn?: string;
+-  bytebaseUrl: string;
+-  actionImage: string;
+-  workloadIdentityEmail: string;
+-  projectId: string;
+-  targetsPlaceholder: string;
+-}
+-
+-const exchangeTokenStep = (indent: string) =>
+-  `${indent}- name: Exchange token
+-${indent}  id: bytebase-auth
+-${indent}  run: |
+-${indent}    OIDC_TOKEN=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \\
+-${indent}      "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=${GENERATED_WORKFLOW_AUDIENCE}" | jq -r '.value // empty' 2>/dev/null || true)
+-${indent}    if [ -z "$OIDC_TOKEN" ]; then
+-${indent}      echo "::error::Failed to get a GitHub OIDC token. Check that the job has the id-token: write permission."
+-${indent}      exit 1
+-${indent}    fi
+-${indent}    RESPONSE=$(curl -s -X POST "$BYTEBASE_URL/v1/auth:exchangeToken" \\
+-${indent}      -H "Content-Type: application/json" \\
+-${indent}      -d "{\\"token\\":\\"$OIDC_TOKEN\\",\\"email\\":\\"$BYTEBASE_WORKLOAD_IDENTITY\\"}")
+-${indent}    ACCESS_TOKEN=$(echo "$RESPONSE" | jq -r '.accessToken // empty' 2>/dev/null || true)
+-${indent}    if [ -z "$ACCESS_TOKEN" ]; then
+-${indent}      echo "::error::Failed to exchange the OIDC token for a Bytebase access token: $RESPONSE"
+-${indent}      exit 1
+-${indent}    fi
+-${indent}    echo "access-token=$ACCESS_TOKEN" >> $GITHUB_OUTPUT`;
+-
+-const accessTokenFlag =
+-  "--access-token=${{ steps.bytebase-auth.outputs.access-token }}";
+-
+-export function generateGithubSqlReviewYaml(p: YamlParams): string {
+-  return `name: SQL Review
+-on:
+-  pull_request:
+-    branches: ["${p.branch}"]
+-    paths: ["migrations/*.sql"]
+-jobs:
+-  sql-review:
+-    permissions:
+-      id-token: write
+-      pull-requests: write
+-    runs-on: ${p.runsOn}
+-    container:
+-      image: ${p.actionImage}
+-    env:
+-      BYTEBASE_URL: ${p.bytebaseUrl}
+-      BYTEBASE_WORKLOAD_IDENTITY: ${p.workloadIdentityEmail}
+-    steps:
+-      - uses: actions/checkout@v4
+-${exchangeTokenStep("      ")}
+-      - name: SQL Review
+-        env:
+-          GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
+-        run: |
+-          bytebase-action check \\
+-            --url=$BYTEBASE_URL \\
+-            ${accessTokenFlag} \\
+-            --project=projects/${p.projectId} \\
+-            --targets=${p.targetsPlaceholder} \\
+-            --file-pattern=migrations/*.sql`;
+-}
+-
+-export function generateGithubReleaseYaml(p: YamlParams): string {
+-  return `name: Rollout
+-on:
+-  push:
+-    branches: ["${p.branch}"]
+-    paths: ["migrations/*.sql"]
+-env:
+-  BYTEBASE_URL: ${p.bytebaseUrl}
+-  BYTEBASE_WORKLOAD_IDENTITY: ${p.workloadIdentityEmail}
+-  BYTEBASE_PROJECT: projects/${p.projectId}
+-jobs:
+-  build:
+-    runs-on: ${p.runsOn}
+-    steps:
+-      - uses: actions/checkout@v4
+-      - name: Build
+-        run: echo "Building..."
+-  create-rollout:
+-    needs: build
+-    permissions:
+-      id-token: write
+-    runs-on: ${p.runsOn}
+-    container:
+-      image: ${p.actionImage}
+-    outputs:
+-      bytebase-plan: \${{ steps.set-output.outputs.plan }}
+-    steps:
+-      - uses: actions/checkout@v4
+-${exchangeTokenStep("      ")}
+-      - name: Create rollout
+-        run: |
+-          bytebase-action rollout \\
+-            --url=$BYTEBASE_URL \\
+-            ${accessTokenFlag} \\
+-            --project=$BYTEBASE_PROJECT \\
+-            --targets=${p.targetsPlaceholder} \\
+-            --file-pattern=migrations/*.sql \\
+-            --output=\${{ runner.temp }}/bytebase-metadata.json
+-      - name: Set output
+-        id: set-output
+-        run: |
+-          PLAN=$(jq -r .plan \${{ runner.temp }}/bytebase-metadata.json)
+-          echo "plan=$PLAN" >> $GITHUB_OUTPUT
+-  deploy-to-test:
+-    needs: create-rollout
+-    permissions:
+-      id-token: write
+-    runs-on: ${p.runsOn}
+-    environment: test
+-    container:
+-      image: ${p.actionImage}
+-    steps:
+-      - uses: actions/checkout@v4
+-${exchangeTokenStep("      ")}
+-      - name: Deploy to test
+-        run: |
+-          bytebase-action rollout \\
+-            --url=$BYTEBASE_URL \\
+-            ${accessTokenFlag} \\
+-            --project=$BYTEBASE_PROJECT \\
+-            --target-stage=environments/test \\
+-            --plan=\${{ needs.create-rollout.outputs.bytebase-plan }}
+-  deploy-to-prod:
+-    needs: [deploy-to-test, create-rollout]
+-    permissions:
+-      id-token: write
+-    runs-on: ${p.runsOn}
+-    environment: prod
+-    container:
+-      image: ${p.actionImage}
+-    steps:
+-      - uses: actions/checkout@v4
+-${exchangeTokenStep("      ")}
+-      - name: Deploy to prod
+-        run: |
+-          bytebase-action rollout \\
+-            --url=$BYTEBASE_URL \\
+-            ${accessTokenFlag} \\
+-            --project=$BYTEBASE_PROJECT \\
+-            --target-stage=environments/prod \\
+-            --plan=\${{ needs.create-rollout.outputs.bytebase-plan }}`;
+-}
+-
+-const gitlabExchangeScript = `    - |
+-      RESPONSE=$(curl -s -X POST "$BYTEBASE_URL/v1/auth:exchangeToken" \\
+-        -H "Content-Type: application/json" \\
+-        -d "{\\"token\\":\\"$GITLAB_OIDC_TOKEN\\",\\"email\\":\\"$BYTEBASE_WORKLOAD_IDENTITY\\"}")
+-      ACCESS_TOKEN=$(echo "$RESPONSE" | jq -r '.accessToken // empty' 2>/dev/null || true)
+-      if [ -z "$ACCESS_TOKEN" ]; then
+-        echo "Failed to exchange the GitLab OIDC token for a Bytebase access token: $RESPONSE"
+-        exit 1
+-      fi
+-      export BYTEBASE_ACCESS_TOKEN=$ACCESS_TOKEN`;
+-
+-export function generateGitlabCiYaml(p: YamlParams): string {
+-  return `stages:
+-  - sql-review
+-  - create-rollout
+-  - deploy-to-test
+-  - deploy-to-prod
+-
+-variables:
+-  BYTEBASE_URL: ${p.bytebaseUrl}
+-  BYTEBASE_WORKLOAD_IDENTITY: ${p.workloadIdentityEmail}
+-  BYTEBASE_PROJECT: projects/${p.projectId}
+-  BYTEBASE_TARGETS: ${p.targetsPlaceholder}
+-  FILE_PATTERN: "migrations/*.sql"
+-
+-sql-review:
+-  stage: sql-review
+-  image: ${p.actionImage}
+-  id_tokens:
+-    GITLAB_OIDC_TOKEN:
+-      aud: ${GENERATED_WORKFLOW_AUDIENCE}
+-  rules:
+-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+-  script:
+-${gitlabExchangeScript}
+-    - bytebase-action check --url=$BYTEBASE_URL --access-token=$BYTEBASE_ACCESS_TOKEN --project=$BYTEBASE_PROJECT --targets=$BYTEBASE_TARGETS --file-pattern=$FILE_PATTERN
+-
+-create-rollout:
+-  stage: create-rollout
+-  image: ${p.actionImage}
+-  id_tokens:
+-    GITLAB_OIDC_TOKEN:
+-      aud: ${GENERATED_WORKFLOW_AUDIENCE}
+-  rules:
+-    - if: $CI_COMMIT_BRANCH == "${p.branch}"
+-  script:
+-${gitlabExchangeScript}
+-    - bytebase-action rollout --url=$BYTEBASE_URL --access-token=$BYTEBASE_ACCESS_TOKEN --project=$BYTEBASE_PROJECT --targets=$BYTEBASE_TARGETS --file-pattern=$FILE_PATTERN --output=bytebase-metadata.json
+-  artifacts:
+-    paths: [bytebase-metadata.json]
+-
+-deploy-to-test:
+-  stage: deploy-to-test
+-  image: ${p.actionImage}
+-  needs: [create-rollout]
+-  id_tokens:
+-    GITLAB_OIDC_TOKEN:
+-      aud: ${GENERATED_WORKFLOW_AUDIENCE}
+-  rules:
+-    - if: $CI_COMMIT_BRANCH == "${p.branch}"
+-  environment: test
+-  script:
+-${gitlabExchangeScript}
+-    - PLAN=$(jq -r .plan bytebase-metadata.json)
+-    - bytebase-action rollout --url=$BYTEBASE_URL --access-token=$BYTEBASE_ACCESS_TOKEN --project=$BYTEBASE_PROJECT --target-stage=environments/test --plan=$PLAN
+-
+-deploy-to-prod:
+-  stage: deploy-to-prod
+-  image: ${p.actionImage}
+-  needs: [create-rollout, deploy-to-test]
+-  id_tokens:
+-    GITLAB_OIDC_TOKEN:
+-      aud: ${GENERATED_WORKFLOW_AUDIENCE}
+-  rules:
+-    - if: $CI_COMMIT_BRANCH == "${p.branch}"
+-  environment: prod
+-  when: manual
+-  script:
+-${gitlabExchangeScript}
+-    - PLAN=$(jq -r .plan bytebase-metadata.json)
+-    - bytebase-action rollout --url=$BYTEBASE_URL --access-token=$BYTEBASE_ACCESS_TOKEN --project=$BYTEBASE_PROJECT --target-stage=environments/prod --plan=$PLAN`;
+-}

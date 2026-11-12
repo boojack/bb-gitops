@@ -1,0 +1,560 @@
+From 4f082ffb82af9b21589f21a88af77f3e519d2749 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Thu, 12 Nov 2026 03:10:48 +0000
+Subject: [PATCH 4/5] feat(gitops): options for the setup steps on shared
+ pickers (BYT-10423)
+
+- WorkloadIdentityDialog: closeOnCreate closes after Create and a
+  granted role instead of showing Done. A failed grant still shows Done.
+  gitProvidersOnly offers GitHub Actions and GitLab CI only when
+  creating. Editing still shows every token source.
+- WorkloadIdentitySelect: describe and disabledReason let the caller
+  set each identity's description and refuse identities it cannot use.
+- DatabaseSelect: requireEnvironment lists a database with no
+  environment as disabled, marked "No environment".
+
+All of them default to today's behavior.
+---
+ .../src/components/DatabaseSelect.test.tsx    | 67 +++++++++++++++++--
+ frontend/src/components/DatabaseSelect.tsx    | 63 ++++++++++-------
+ .../WorkloadIdentityFlow/TokenSourceStep.tsx  | 13 +++-
+ .../WorkloadIdentityDialog.test.tsx           | 62 +++++++++++++++++
+ .../WorkloadIdentityDialog.tsx                | 19 ++++++
+ frontend/src/locales/en-US.json               |  1 +
+ frontend/src/locales/es-ES.json               |  1 +
+ frontend/src/locales/ja-JP.json               |  1 +
+ frontend/src/locales/vi-VN.json               |  1 +
+ frontend/src/locales/zh-CN.json               |  1 +
+ .../project/WorkloadIdentitySelect.test.tsx   | 37 ++++++++++
+ .../routes/project/WorkloadIdentitySelect.tsx | 23 +++++--
+ 12 files changed, 252 insertions(+), 37 deletions(-)
+
+diff --git a/frontend/src/components/DatabaseSelect.test.tsx b/frontend/src/components/DatabaseSelect.test.tsx
+index ef28871..020d9c1 100644
+--- a/frontend/src/components/DatabaseSelect.test.tsx
++++ b/frontend/src/components/DatabaseSelect.test.tsx
+@@ -10,17 +10,18 @@ import type { Database } from "@/types/proto-es/v1/database_service_pb";
+ // Captured props from the mocked Combobox — inspected/driven by each test.
+ type ComboProps = {
+   multiple?: boolean;
++  options: {
++    value: string;
++    label: string;
++    disabled?: boolean;
++    render?: (keyword: string) => ReactNode;
++  }[];
+   value: string | string[];
+   onChange: (v: string | string[]) => void;
+   onSearch?: (q: string) => void | Promise<void>;
+   hasMore?: boolean;
+   loadingMore?: boolean;
+   onLoadMore?: () => void | Promise<void>;
+-  options: {
+-    value: string;
+-    label: string;
+-    render?: (keyword: string) => ReactNode;
+-  }[];
+   renderValue?: (opt: { value: string; label: string }) => unknown;
+ };
+ const combo: { props?: ComboProps } = {};
+@@ -504,3 +505,59 @@ describe("DatabaseSelect — single mode (regression guard for Sync Schema)", ()
+     unmount();
+   });
+ });
++
++describe("DatabaseSelect — requireEnvironment", () => {
++  const archive = db("instances/i/databases/archive", "");
++
++  test("lists a database with no environment as pickable by default", async () => {
++    mocks.fetchDatabases.mockResolvedValue({
++      databases: [db("instances/i/databases/shop"), archive],
++      nextPageToken: "",
++    });
++    const { unmount } = render(
++      <DatabaseSelect
++        multiple
++        value={[]}
++        onChange={vi.fn()}
++        projectName="projects/p"
++      />
++    );
++    await flush();
++
++    expect(combo.props?.options.map((o) => o.disabled)).toEqual([
++      false,
++      false,
++    ]);
++    unmount();
++  });
++
++  test("disables a database with no environment and says so", async () => {
++    mocks.fetchDatabases.mockResolvedValue({
++      databases: [db("instances/i/databases/shop"), archive],
++      nextPageToken: "",
++    });
++    const { unmount } = render(
++      <DatabaseSelect
++        multiple
++        requireEnvironment
++        value={[]}
++        onChange={vi.fn()}
++        projectName="projects/p"
++      />
++    );
++    await flush();
++
++    expect(combo.props?.options.map((o) => [o.value, o.disabled])).toEqual([
++      ["instances/i/databases/shop", false],
++      ["instances/i/databases/archive", true],
++    ]);
++    const option = render(
++      combo.props?.options[1].render?.("") as ReactElement
++    );
++    expect(option.container.textContent).toContain(
++      "database.select-no-environment"
++    );
++    option.unmount();
++    unmount();
++  });
++});
+diff --git a/frontend/src/components/DatabaseSelect.tsx b/frontend/src/components/DatabaseSelect.tsx
+index 7db94a6..ea5bdcd 100644
+--- a/frontend/src/components/DatabaseSelect.tsx
++++ b/frontend/src/components/DatabaseSelect.tsx
+@@ -17,6 +17,9 @@ interface BaseProps {
+   projectName?: string;
+   environmentName?: string;
+   allowedEngineTypeList?: Engine[];
++  // List a database with no environment as disabled, marked "No
++  // environment". For pickers whose result is deployed by environment.
++  requireEnvironment?: boolean;
+ }
+ 
+ interface SingleProps {
+@@ -45,6 +48,7 @@ export function DatabaseSelect(props: DatabaseSelectProps) {
+     projectName,
+     environmentName,
+     allowedEngineTypeList,
++    requireEnvironment,
+   } = props;
+   const { t } = useTranslation();
+   const workspaceResourceName = useAppStore((s) => s.workspaceResourceName());
+@@ -128,30 +132,41 @@ export function DatabaseSelect(props: DatabaseSelectProps) {
+     [getDatabaseByName]
+   );
+ 
+-  const buildOption = useCallback((database: Database): ComboboxOption => {
+-    const { databaseName, instance } = extractDatabaseResourceName(
+-      database.name
+-    );
+-    return {
+-      value: database.name,
+-      label: databaseName,
+-      description: instance,
+-      render: (keyword) => (
+-        <div className="flex flex-col gap-1">
+-          <DatabaseTargetDisplay
+-            database={database}
+-            keyword={keyword}
+-            showEnvironment
+-          />
+-          <HighlightLabelText
+-            text={database.name}
+-            keyword={keyword}
+-            className="text-xs text-control-placeholder"
+-          />
+-        </div>
+-      ),
+-    };
+-  }, []);
++  const buildOption = useCallback(
++    (database: Database): ComboboxOption => {
++      const { databaseName, instance } = extractDatabaseResourceName(
++        database.name
++      );
++      const noEnvironment =
++        requireEnvironment === true && !database.effectiveEnvironment;
++      return {
++        value: database.name,
++        label: databaseName,
++        description: instance,
++        disabled: noEnvironment,
++        render: (keyword) => (
++          <div className="flex flex-col gap-1">
++            <DatabaseTargetDisplay
++              database={database}
++              keyword={keyword}
++              showEnvironment
++            />
++            <HighlightLabelText
++              text={database.name}
++              keyword={keyword}
++              className="text-xs text-control-placeholder"
++            />
++            {noEnvironment && (
++              <span className="text-xs text-warning">
++                {t("database.select-no-environment")}
++              </span>
++            )}
++          </div>
++        ),
++      };
++    },
++    [requireEnvironment, t]
++  );
+ 
+   // Deduped union: current results + any selected value not on the page
+   // (resolved from the cache, else a label-only synthesized option from the
+diff --git a/frontend/src/components/WorkloadIdentityFlow/TokenSourceStep.tsx b/frontend/src/components/WorkloadIdentityFlow/TokenSourceStep.tsx
+index 2c5d68d..92af524 100644
+--- a/frontend/src/components/WorkloadIdentityFlow/TokenSourceStep.tsx
++++ b/frontend/src/components/WorkloadIdentityFlow/TokenSourceStep.tsx
+@@ -11,6 +11,7 @@ import { TagInput } from "@/components/ui/tag-input";
+ import { cn } from "@/lib/utils";
+ import { WorkloadIdentityConfig_ProviderType } from "@/types/proto-es/v1/workload_identity_service_pb";
+ import { Field, InlineCode, StepHeading, TextAction } from "./StepParts";
++import { isRepositoryProvider } from "./subjectPattern";
+ 
+ export interface TokenSourceErrors {
+   provider?: string;
+@@ -22,6 +23,8 @@ export interface TokenSourceErrors {
+ interface TokenSourceStepProps {
+   readonly providerType?: WorkloadIdentityConfig_ProviderType;
+   readonly providerLocked: boolean;
++  // Offer GitHub Actions and GitLab CI only.
++  readonly gitProvidersOnly?: boolean;
+   readonly onProviderChange: (
+     providerType: WorkloadIdentityConfig_ProviderType
+   ) => void;
+@@ -70,7 +73,10 @@ export function TokenSourceStep(props: TokenSourceStepProps) {
+       title: t("workload-identity.token-source.oidc-title"),
+       subtitle: t("workload-identity.token-source.oidc-subtitle"),
+     },
+-  ];
++  ].filter(
++    (provider) =>
++      !props.gitProvidersOnly || isRepositoryProvider(provider.value)
++  );
+ 
+   return (
+     <div className="flex flex-col gap-y-4">
+@@ -89,7 +95,10 @@ export function TokenSourceStep(props: TokenSourceStepProps) {
+               Number(value) as WorkloadIdentityConfig_ProviderType
+             )
+           }
+-          className="grid grid-cols-1 items-stretch gap-2 sm:grid-cols-3"
++          className={cn(
++            "grid grid-cols-1 items-stretch gap-2",
++            providers.length === 2 ? "sm:grid-cols-2" : "sm:grid-cols-3"
++          )}
+         >
+           {providers.map((provider) => {
+             const selected = providerType === provider.value;
+diff --git a/frontend/src/components/WorkloadIdentityFlow/WorkloadIdentityDialog.test.tsx b/frontend/src/components/WorkloadIdentityFlow/WorkloadIdentityDialog.test.tsx
+index fdfca17..c4653f4 100644
+--- a/frontend/src/components/WorkloadIdentityFlow/WorkloadIdentityDialog.test.tsx
++++ b/frontend/src/components/WorkloadIdentityFlow/WorkloadIdentityDialog.test.tsx
+@@ -117,6 +117,9 @@ let container: HTMLElement;
+ const render = async (props: {
+   workloadIdentity?: WorkloadIdentity;
+   onClose?: () => void;
++  onCreated?: (wi: WorkloadIdentity) => void;
++  closeOnCreate?: boolean;
++  gitProvidersOnly?: boolean;
+ }) => {
+   container = document.createElement("div");
+   document.body.appendChild(container);
+@@ -447,6 +450,65 @@ describe("WorkloadIdentityDialog", () => {
+     expect(text()).toContain("workload-identity.done.role-not-granted");
+   });
+ 
++  test("closes after Create with closeOnCreate, returning the identity", async () => {
++    mocks.store.patchWorkspaceIamPolicy.mockResolvedValue(undefined);
++    const onClose = vi.fn();
++    const onCreated = vi.fn();
++    await render({ closeOnCreate: true, onClose, onCreated });
++    await goToAccount("acme-corp");
++    await click("common.create");
++
++    expect(onCreated).toHaveBeenCalledWith(
++      expect.objectContaining({ email: "deploy-ci@workload.bytebase.com" })
++    );
++    expect(mocks.store.patchWorkspaceIamPolicy).toHaveBeenCalledOnce();
++    expect(onClose).toHaveBeenCalledOnce();
++    // The role was granted before the dialog closed.
++    expect(
++      mocks.store.patchWorkspaceIamPolicy.mock.invocationCallOrder[0]
++    ).toBeLessThan(onClose.mock.invocationCallOrder[0]);
++  });
++
++  test("stays on Done with closeOnCreate when the role grant fails", async () => {
++    mocks.store.patchWorkspaceIamPolicy.mockRejectedValue(
++      new ConnectError("permission denied", Code.PermissionDenied)
++    );
++    const onClose = vi.fn();
++    await render({ closeOnCreate: true, onClose });
++    await goToAccount("acme-corp");
++    await click("common.create");
++
++    expect(onClose).not.toHaveBeenCalled();
++    expect(text()).toContain("workload-identity.done.role-not-granted");
++  });
++
++  test("offers every token source by default", async () => {
++    await render({});
++    expect(container.querySelectorAll('[role="radio"]')).toHaveLength(3);
++    expect(text()).toContain("workload-identity.token-source.oidc-title");
++  });
++
++  test("offers GitHub Actions and GitLab CI only with gitProvidersOnly", async () => {
++    await render({ gitProvidersOnly: true });
++    expect(container.querySelectorAll('[role="radio"]')).toHaveLength(2);
++    expect(text()).toContain("workload-identity.token-source.github-title");
++    expect(text()).toContain("workload-identity.token-source.gitlab-title");
++    expect(text()).not.toContain("workload-identity.token-source.oidc-title");
++  });
++
++  test("offers every token source when editing, even with gitProvidersOnly", async () => {
++    await render({
++      gitProvidersOnly: true,
++      workloadIdentity: storedIdentity({
++        providerType: WorkloadIdentityConfig_ProviderType.OIDC,
++        subjectPattern: "system:serviceaccount:ci:deployer",
++      }),
++    });
++    const radios = container.querySelectorAll('[role="radio"]');
++    expect(radios).toHaveLength(3);
++    expect(radios[2].getAttribute("aria-checked")).toBe("true");
++  });
++
+   test("blocks an email another identity uses", async () => {
+     vi.useFakeTimers();
+     try {
+diff --git a/frontend/src/components/WorkloadIdentityFlow/WorkloadIdentityDialog.tsx b/frontend/src/components/WorkloadIdentityFlow/WorkloadIdentityDialog.tsx
+index b560334..e899256 100644
+--- a/frontend/src/components/WorkloadIdentityFlow/WorkloadIdentityDialog.tsx
++++ b/frontend/src/components/WorkloadIdentityFlow/WorkloadIdentityDialog.tsx
+@@ -79,6 +79,14 @@ export interface WorkloadIdentityDialogProps {
+   readonly onClose: () => void;
+   readonly onCreated: (wi: WorkloadIdentity) => void;
+   readonly onUpdated?: (wi: WorkloadIdentity) => void;
++  // Close after Create instead of showing the Done step. For a caller that
++  // shows the new identity itself, such as GitOps setup. A failed role grant
++  // still shows Done, which explains it.
++  readonly closeOnCreate?: boolean;
++  // Offer GitHub Actions and GitLab CI only when creating. For a caller that
++  // can use no other token source, such as GitOps setup. Editing offers every
++  // source, so a stored one is never missing.
++  readonly gitProvidersOnly?: boolean;
+ }
+ 
+ export function WorkloadIdentityDialog(props: WorkloadIdentityDialogProps) {
+@@ -101,6 +109,8 @@ export function WorkloadIdentityDialog(props: WorkloadIdentityDialogProps) {
+           onClose={onClose}
+           onCreated={props.onCreated}
+           onUpdated={props.onUpdated}
++          closeOnCreate={props.closeOnCreate}
++          gitProvidersOnly={props.gitProvidersOnly}
+         />
+       </DialogContent>
+     </Dialog>
+@@ -162,6 +172,8 @@ function WorkloadIdentityFlow({
+   onClose,
+   onCreated,
+   onUpdated,
++  closeOnCreate,
++  gitProvidersOnly,
+ }: Omit<WorkloadIdentityDialogProps, "open">) {
+   const { t } = useTranslation();
+   const getProjectIamPolicy = useAppStore((state) => state.getProjectIamPolicy);
+@@ -547,15 +559,21 @@ function WorkloadIdentityFlow({
+     );
+     setSaved(wi);
+     onCreated(wi);
++    let roleGranted = true;
+     if (canSetRoles && role) {
+       try {
+         await grantRole(getWorkloadIdentityNameInBinding(wi.email));
+       } catch (err) {
++        roleGranted = false;
+         setRoleError(
+           err instanceof ConnectError ? err.rawMessage : String(err)
+         );
+       }
+     }
++    if (closeOnCreate && roleGranted) {
++      onClose();
++      return;
++    }
+     setStep(DONE);
+   };
+ 
+@@ -630,6 +648,7 @@ function WorkloadIdentityFlow({
+       <TokenSourceStep
+         providerType={providerType}
+         providerLocked={providerLocked}
++        gitProvidersOnly={gitProvidersOnly && !isEditMode}
+         onProviderChange={handleProviderChange}
+         issuerUrl={issuerUrl}
+         onIssuerUrlChange={setIssuerUrl}
+diff --git a/frontend/src/locales/en-US.json b/frontend/src/locales/en-US.json
+index 78c1910..fdde2af 100644
+--- a/frontend/src/locales/en-US.json
++++ b/frontend/src/locales/en-US.json
+@@ -1126,6 +1126,7 @@
+       "unspecified": "Unspecified"
+     },
+     "select": "Select database",
++    "select-no-environment": "No environment",
+     "successfully-exported-schema": "Successfully exported schema",
+     "successfully-transferred-databases": "Successfully transferred databases",
+     "sync-complete-for-instance": "Sync complete for instance '{{0}}'",
+diff --git a/frontend/src/locales/es-ES.json b/frontend/src/locales/es-ES.json
+index 32e284d..ec30938 100644
+--- a/frontend/src/locales/es-ES.json
++++ b/frontend/src/locales/es-ES.json
+@@ -1126,6 +1126,7 @@
+       "unspecified": "No especificado"
+     },
+     "select": "Seleccionar base de datos",
++    "select-no-environment": "Sin entorno",
+     "successfully-exported-schema": "Esquema exportado correctamente",
+     "successfully-transferred-databases": "Bases de datos transferidas exitosamente",
+     "sync-complete-for-instance": "Sincronización completada para la instancia '{{0}}'",
+diff --git a/frontend/src/locales/ja-JP.json b/frontend/src/locales/ja-JP.json
+index 32d0c26..9c42509 100644
+--- a/frontend/src/locales/ja-JP.json
++++ b/frontend/src/locales/ja-JP.json
+@@ -1126,6 +1126,7 @@
+       "unspecified": "不特定"
+     },
+     "select": "データベースの選択",
++    "select-no-environment": "環境なし",
+     "successfully-exported-schema": "スキーマのエクスポートに成功しました",
+     "successfully-transferred-databases": "データベースの転送に成功しました",
+     "sync-complete-for-instance": "インスタンス '{{0}}' の同期が完了しました",
+diff --git a/frontend/src/locales/vi-VN.json b/frontend/src/locales/vi-VN.json
+index 196511c..6a07876 100644
+--- a/frontend/src/locales/vi-VN.json
++++ b/frontend/src/locales/vi-VN.json
+@@ -1126,6 +1126,7 @@
+       "unspecified": "Không xác định"
+     },
+     "select": "Chọn cơ sở dữ liệu",
++    "select-no-environment": "Chưa có môi trường",
+     "successfully-exported-schema": "Đã xuất schema thành công",
+     "successfully-transferred-databases": "Chuyển cơ sở dữ liệu thành công",
+     "sync-complete-for-instance": "Đồng bộ hoàn tất cho instance '{{0}}'",
+diff --git a/frontend/src/locales/zh-CN.json b/frontend/src/locales/zh-CN.json
+index 8a60e49..3cfdbc8 100644
+--- a/frontend/src/locales/zh-CN.json
++++ b/frontend/src/locales/zh-CN.json
+@@ -1126,6 +1126,7 @@
+       "unspecified": "未指定"
+     },
+     "select": "选择数据库",
++    "select-no-environment": "无环境",
+     "successfully-exported-schema": "成功导出 Schema",
+     "successfully-transferred-databases": "成功转移数据库",
+     "sync-complete-for-instance": "实例 '{{0}}' 同步完成",
+diff --git a/frontend/src/routes/project/WorkloadIdentitySelect.test.tsx b/frontend/src/routes/project/WorkloadIdentitySelect.test.tsx
+index 106e9ba..f23fbf1 100644
+--- a/frontend/src/routes/project/WorkloadIdentitySelect.test.tsx
++++ b/frontend/src/routes/project/WorkloadIdentitySelect.test.tsx
+@@ -256,4 +256,41 @@ describe("WorkloadIdentitySelect", () => {
+     );
+     unmount();
+   });
++
++  test("describes each identity and disables the ones the caller refuses", async () => {
++    mocks.listWorkloadIdentities.mockResolvedValue({
++      workloadIdentities: [
++        workloadIdentity("workloadIdentities/gh", "GitHub"),
++        workloadIdentity("workloadIdentities/k8s", "Cluster"),
++      ],
++      nextPageToken: "",
++    });
++
++    const { unmount } = render(
++      <WorkloadIdentitySelect
++        projectName="projects/p"
++        value=""
++        onChange={() => {}}
++        describe={(wi) => `about ${wi.title}`}
++        disabledReason={(wi) =>
++          wi.title === "Cluster" ? "no workflow files" : undefined
++        }
++      />
++    );
++    await flush();
++
++    expect(combo.props?.options).toEqual([
++      expect.objectContaining({
++        value: "workloadIdentities/gh",
++        description: "about GitHub",
++        disabled: false,
++      }),
++      expect.objectContaining({
++        value: "workloadIdentities/k8s",
++        description: "no workflow files",
++        disabled: true,
++      }),
++    ]);
++    unmount();
++  });
+ });
+diff --git a/frontend/src/routes/project/WorkloadIdentitySelect.tsx b/frontend/src/routes/project/WorkloadIdentitySelect.tsx
+index 5d0e2d6..50f380e 100644
+--- a/frontend/src/routes/project/WorkloadIdentitySelect.tsx
++++ b/frontend/src/routes/project/WorkloadIdentitySelect.tsx
+@@ -18,6 +18,11 @@ interface WorkloadIdentitySelectProps {
+   disabled?: boolean;
+   className?: string;
+   portal?: boolean;
++  // The line under each identity's name. Defaults to its email.
++  describe?: (workloadIdentity: WorkloadIdentity) => string;
++  // Why an identity cannot be picked, or undefined when it can. A disabled
++  // identity stays listed and shows the reason in place of its description.
++  disabledReason?: (workloadIdentity: WorkloadIdentity) => string | undefined;
+ }
+ 
+ export function WorkloadIdentitySelect({
+@@ -28,6 +33,8 @@ export function WorkloadIdentitySelect({
+   disabled,
+   className,
+   portal,
++  describe,
++  disabledReason,
+ }: WorkloadIdentitySelectProps) {
+   const { t } = useTranslation();
+   const listWorkloadIdentities = useAppStore(
+@@ -67,11 +74,15 @@ export function WorkloadIdentitySelect({
+   }, [search]);
+ 
+   const options = useMemo(() => {
+-    const toOption = (identity: WorkloadIdentity): ComboboxOption => ({
+-      value: identity.name,
+-      label: identity.title || identity.email,
+-      description: identity.email,
+-    });
++    const toOption = (identity: WorkloadIdentity): ComboboxOption => {
++      const reason = disabledReason?.(identity);
++      return {
++        value: identity.name,
++        label: identity.title || identity.email,
++        description: reason ?? describe?.(identity) ?? identity.email,
++        disabled: reason !== undefined,
++      };
++    };
+     const options = workloadIdentities.map(toOption);
+     if (
+       selectedWorkloadIdentity &&
+@@ -82,7 +93,7 @@ export function WorkloadIdentitySelect({
+       options.push(toOption(selectedWorkloadIdentity));
+     }
+     return options;
+-  }, [selectedWorkloadIdentity, workloadIdentities]);
++  }, [selectedWorkloadIdentity, workloadIdentities, describe, disabledReason]);
+ 
+   return (
+     <Combobox

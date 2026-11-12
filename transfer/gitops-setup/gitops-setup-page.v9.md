@@ -1,6 +1,6 @@
 # GitOps setup page
 
-Status: proposed · 2026-11-11 · [BYT-10423](https://linear.app/bytebase/issue/BYT-10423) · builds on the workload identity dialog, [#21942], and on sign-in inside the action, [#21974]
+Status: implemented in this PR · 2026-11-12 · [BYT-10423](https://linear.app/bytebase/issue/BYT-10423) · builds on the workload identity dialog, [#21942], and on sign-in inside the action, [#21974]
 
 The project's GitOps page sets up database changes by pull request: a workflow in the team's
 repository asks Bytebase to review each pull request and to deploy on merge.
@@ -440,7 +440,7 @@ one line.
 
 ## Scope
 
-Expected files. The list is refined when implementation starts.
+Files in this PR.
 
 | File | Change |
 |---|---|
@@ -449,11 +449,15 @@ Expected files. The list is refined when implementation starts.
 | `frontend/src/routes/project/gitops-setup/ProviderLogo.tsx` | New: the GitHub or GitLab logo at 16px, from the files in `frontend/src/assets/git/` that the Create dialog and the release page already use (D4, D5). |
 | `frontend/src/routes/project/gitops-setup/DeployOrder.tsx` and its test | New: the deploy order list, the "+N more" list and the no-environment warning (D3). |
 | `frontend/src/routes/project/gitopsWorkflowYaml.ts` and its test | Takes the picked targets, their environments, the identity and the folder, and returns the files for the identity's git provider (D5, D6). The files no longer carry the token exchange script, which is the generator change of [#21974]. The exact YAML is BYT-10424. |
-| `frontend/src/routes/project/WorkloadIdentitySelect.tsx` | Lists every identity of the project and disables those for another OIDC provider (D4). |
+| `frontend/src/routes/project/gitops-setup/useDeployTargets.ts` and its test | New: loads the picked group or databases and puts them in deploy order by environment, with the databases that have no environment apart (D3). |
+| `frontend/src/routes/project/gitops-setup/identity.ts` | New: what setup reads from a workload identity: its git provider, its repositories, the repository address and its roles in the project (D4). |
+| `frontend/src/routes/project/WorkloadIdentitySelect.tsx` and its test | Two opt-in props: the caller sets each identity's description and can refuse an identity with a reason. Setup uses them to disable identities for another OIDC provider (D4). |
 | `frontend/src/components/WorkloadIdentityFlow/{WorkloadIdentityDialog,TokenSourceStep}.tsx` and the dialog's test | Two opt-in props: the token sources to offer, and close after Create and return the new identity (D10). |
 | `frontend/src/components/ui/step-indicator.tsx` | Reused as it is after [#21942]. |
 | `frontend/src/components/ui/sticky-action-footer.tsx` | Reused as it is. |
-| `frontend/src/components/DatabaseSelect.tsx`, `DatabaseTargetDisplay.tsx` | Reused as they are. |
+| `frontend/src/components/DatabaseSelect.tsx` and its test | One opt-in prop: a database with no environment is listed as disabled and marked "No environment" (D3). |
+| `frontend/src/components/DatabaseTargetDisplay.tsx` | Reused as it is. |
+| `frontend/src/assets/gitops-workflow.svg` | Removed. Nothing shows it any more. |
 | `frontend/src/locales/{en-US,es-ES,ja-JP,vi-VN,zh-CN}.json` | New `gitops` setup strings in all five locales. Strings that are no longer used are removed. |
 | `docs/design/gitops-setup-page.md` | This document. |
 
@@ -466,6 +470,13 @@ Tests:
   and every GitLab job names its ID token `BYTEBASE_ID_TOKEN`.
 - `DeployOrder.test.tsx`: sections follow the environment order. Three chips, then "+N more". The
   total shows above three databases. The warning counts databases with no environment.
+- `useDeployTargets.test.ts`: stages follow the workspace's environment order, and an environment
+  missing from that order comes first, as in the rollout. Databases with no environment are left out
+  of the stages. A group expands to the databases it matches.
+- `DatabaseSelect.test.tsx`: a database with no environment can be picked by default, and is
+  disabled and marked when the caller requires an environment.
+- `WorkloadIdentitySelect.test.tsx`: the caller's description shows on each identity, and an
+  identity the caller refuses is disabled.
 - `WorkloadIdentityDialog.test.tsx`: limited to GitHub Actions and GitLab CI, the dialog shows two
   token sources and no Other OIDC. With no limit it shows all three. Editing an identity always
   shows all three.
@@ -484,6 +495,8 @@ Tests:
     file before and after. The GitLab `include` lines have no action.
   - An unset External URL shows the task on every step, a placeholder in the files and disabled copy
     buttons.
+  - A file's header bar names its path and nothing else.
+  - Every picker opens its menu above the sticky footer.
   - The footer holds Continue on steps 1 and 2 and only Back on step 3.
 - Manual: walk the three steps on desktop and at 375px wide, in a project with one database and in
   one with more than a hundred. In a window shorter than the step, check that Continue stays in

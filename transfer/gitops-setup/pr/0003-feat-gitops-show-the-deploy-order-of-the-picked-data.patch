@@ -1,0 +1,772 @@
+From adc2c58bb015a7f2edcdc509899798f444e9fc47 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Thu, 12 Nov 2026 03:10:48 +0000
+Subject: [PATCH 3/5] feat(gitops): show the deploy order of the picked
+ databases (BYT-10423)
+
+useDeployTargets loads the pick, expands a group to its databases, and
+groups them by environment the way the rollout does. DeployOrder shows
+one section per environment with three chips and "+N more", as the plan
+page does, and warns about databases with no environment.
+---
+ frontend/src/locales/en-US.json               |  14 ++
+ frontend/src/locales/es-ES.json               |  14 ++
+ frontend/src/locales/ja-JP.json               |  14 ++
+ frontend/src/locales/vi-VN.json               |  14 ++
+ frontend/src/locales/zh-CN.json               |  14 ++
+ .../project/gitops-setup/DeployOrder.test.tsx | 127 ++++++++++++
+ .../project/gitops-setup/DeployOrder.tsx      | 190 ++++++++++++++++++
+ .../gitops-setup/useDeployTargets.test.ts     | 156 ++++++++++++++
+ .../project/gitops-setup/useDeployTargets.ts  | 124 ++++++++++++
+ 9 files changed, 667 insertions(+)
+ create mode 100644 frontend/src/routes/project/gitops-setup/DeployOrder.test.tsx
+ create mode 100644 frontend/src/routes/project/gitops-setup/DeployOrder.tsx
+ create mode 100644 frontend/src/routes/project/gitops-setup/useDeployTargets.test.ts
+ create mode 100644 frontend/src/routes/project/gitops-setup/useDeployTargets.ts
+
+diff --git a/frontend/src/locales/en-US.json b/frontend/src/locales/en-US.json
+index dd086f6..78c1910 100644
+--- a/frontend/src/locales/en-US.json
++++ b/frontend/src/locales/en-US.json
+@@ -1317,6 +1317,20 @@
+       "description-git": "Your database schema lives in Git alongside your application code. Pull requests trigger SQL review, and merging to the target branch automatically creates rollouts.",
+       "title": "What is GitOps"
+     },
++    "setup": {
++      "deploy-order": {
++        "database-count_one": "{{count}} database",
++        "database-count_other": "{{count}} databases",
++        "environment-count_one": "{{count}} environment",
++        "environment-count_other": "{{count}} environments",
++        "label": "Deploy order",
++        "summary": "{{databases}} in {{environments}}",
++        "unassigned-description_one": "It has no environment, so the deploy skips it without an error. Assign an environment to include it.",
++        "unassigned-description_other": "They have no environment, so the deploy skips them without an error. Assign an environment to include them.",
++        "unassigned-title_one": "{{count}} database will not be deployed",
++        "unassigned-title_other": "{{count}} databases will not be deployed"
++      }
++    },
+     "test-setup": {
+       "description": "Verify the workflow is working end-to-end with a sample migration file.",
+       "naming-convention": "Migration files are applied in lexicographic order. Use a timestamp or sequence prefix, e.g. 20240101000000_create_table.sql. Append _ddl or _dml to indicate the change type.",
+diff --git a/frontend/src/locales/es-ES.json b/frontend/src/locales/es-ES.json
+index a93d8c0..32e284d 100644
+--- a/frontend/src/locales/es-ES.json
++++ b/frontend/src/locales/es-ES.json
+@@ -1317,6 +1317,20 @@
+       "description-git": "El esquema de su base de datos se almacena en Git junto con el código de su aplicación. Las pull requests activan la revisión de SQL, y la fusión en la rama de destino crea automáticamente los despliegues.",
+       "title": "Qué es GitOps"
+     },
++    "setup": {
++      "deploy-order": {
++        "database-count_one": "{{count}} base de datos",
++        "database-count_other": "{{count}} bases de datos",
++        "environment-count_one": "{{count}} entorno",
++        "environment-count_other": "{{count}} entornos",
++        "label": "Orden de despliegue",
++        "summary": "{{databases}} en {{environments}}",
++        "unassigned-description_one": "No tiene entorno, así que el despliegue la omite sin error. Asígnale un entorno para incluirla.",
++        "unassigned-description_other": "No tienen entorno, así que el despliegue las omite sin error. Asígnales un entorno para incluirlas.",
++        "unassigned-title_one": "{{count}} base de datos no se desplegará",
++        "unassigned-title_other": "{{count}} bases de datos no se desplegarán"
++      }
++    },
+     "test-setup": {
+       "description": "Verifique que el flujo de trabajo funciona de extremo a extremo con un archivo de migración de ejemplo.",
+       "naming-convention": "Los archivos de migración se aplican en orden lexicográfico. Use un prefijo de marca de tiempo o secuencia, p. ej. 20240101000000_create_table.sql. Agregue _ddl o _dml para indicar el tipo de cambio.",
+diff --git a/frontend/src/locales/ja-JP.json b/frontend/src/locales/ja-JP.json
+index 93b0362..32d0c26 100644
+--- a/frontend/src/locales/ja-JP.json
++++ b/frontend/src/locales/ja-JP.json
+@@ -1317,6 +1317,20 @@
+       "description-git": "データベーススキーマはアプリケーションコードと一緒に Git で管理されます。プルリクエストで SQL レビューがトリガーされ、ターゲットブランチへのマージで自動的にロールアウトが作成されます。",
+       "title": "GitOps とは"
+     },
++    "setup": {
++      "deploy-order": {
++        "database-count_one": "{{count}} 個のデータベース",
++        "database-count_other": "{{count}} 個のデータベース",
++        "environment-count_one": "{{count}} 個の環境",
++        "environment-count_other": "{{count}} 個の環境",
++        "label": "デプロイ順序",
++        "summary": "{{environments}}に{{databases}}",
++        "unassigned-description_one": "環境が設定されていないため、デプロイはエラーを出さずにスキップします。含めるには環境を割り当ててください。",
++        "unassigned-description_other": "環境が設定されていないため、デプロイはエラーを出さずにスキップします。含めるには環境を割り当ててください。",
++        "unassigned-title_one": "{{count}} 個のデータベースはデプロイされません",
++        "unassigned-title_other": "{{count}} 個のデータベースはデプロイされません"
++      }
++    },
+     "test-setup": {
+       "description": "サンプルマイグレーションファイルでワークフロー全体が正常に動作するか確認します。",
+       "naming-convention": "マイグレーションファイルは辞書順に適用されます。タイムスタンプまたはシーケンス番号のプレフィックスを使用してください（例: 20240101000000_create_table.sql）。変更タイプを示すために _ddl または _dml を末尾に追加してください。",
+diff --git a/frontend/src/locales/vi-VN.json b/frontend/src/locales/vi-VN.json
+index 9f34a53..196511c 100644
+--- a/frontend/src/locales/vi-VN.json
++++ b/frontend/src/locales/vi-VN.json
+@@ -1317,6 +1317,20 @@
+       "description-git": "Schema cơ sở dữ liệu của bạn được lưu trữ trong Git cùng với mã nguồn ứng dụng. Pull request sẽ kích hoạt SQL review, và việc merge vào nhánh đích sẽ tự động tạo rollout.",
+       "title": "GitOps là gì"
+     },
++    "setup": {
++      "deploy-order": {
++        "database-count_one": "{{count}} cơ sở dữ liệu",
++        "database-count_other": "{{count}} cơ sở dữ liệu",
++        "environment-count_one": "{{count}} môi trường",
++        "environment-count_other": "{{count}} môi trường",
++        "label": "Thứ tự triển khai",
++        "summary": "{{databases}} trong {{environments}}",
++        "unassigned-description_one": "Cơ sở dữ liệu này chưa có môi trường nên lần triển khai bỏ qua mà không báo lỗi. Hãy gán môi trường để đưa vào.",
++        "unassigned-description_other": "Các cơ sở dữ liệu này chưa có môi trường nên lần triển khai bỏ qua mà không báo lỗi. Hãy gán môi trường để đưa vào.",
++        "unassigned-title_one": "{{count}} cơ sở dữ liệu sẽ không được triển khai",
++        "unassigned-title_other": "{{count}} cơ sở dữ liệu sẽ không được triển khai"
++      }
++    },
+     "test-setup": {
+       "description": "Xác minh workflow hoạt động đầy đủ với một tệp migration mẫu.",
+       "naming-convention": "Các tệp migration được áp dụng theo thứ tự từ điển. Sử dụng tiền tố timestamp hoặc số thứ tự, ví dụ: 20240101000000_create_table.sql. Thêm _ddl hoặc _dml để chỉ loại thay đổi.",
+diff --git a/frontend/src/locales/zh-CN.json b/frontend/src/locales/zh-CN.json
+index f089dae..8a60e49 100644
+--- a/frontend/src/locales/zh-CN.json
++++ b/frontend/src/locales/zh-CN.json
+@@ -1317,6 +1317,20 @@
+       "description-git": "数据库架构与应用代码一起存储在 Git 中。拉取请求会触发 SQL 审查，合并到目标分支后会自动创建变更发布。",
+       "title": "什么是 GitOps"
+     },
++    "setup": {
++      "deploy-order": {
++        "database-count_one": "{{count}} 个数据库",
++        "database-count_other": "{{count}} 个数据库",
++        "environment-count_one": "{{count}} 个环境",
++        "environment-count_other": "{{count}} 个环境",
++        "label": "部署顺序",
++        "summary": "{{environments}}中的{{databases}}",
++        "unassigned-description_one": "它没有环境，部署会跳过它且不报错。为它指定环境即可纳入部署。",
++        "unassigned-description_other": "它们没有环境，部署会跳过它们且不报错。为它们指定环境即可纳入部署。",
++        "unassigned-title_one": "{{count}} 个数据库不会被部署",
++        "unassigned-title_other": "{{count}} 个数据库不会被部署"
++      }
++    },
+     "test-setup": {
+       "description": "使用示例迁移文件验证整个工作流是否正常运行。",
+       "naming-convention": "迁移文件按字典顺序执行。请使用时间戳或序号前缀，例如 20240101000000_create_table.sql。在文件名末尾添加 _ddl 或 _dml 来标识变更类型。",
+diff --git a/frontend/src/routes/project/gitops-setup/DeployOrder.test.tsx b/frontend/src/routes/project/gitops-setup/DeployOrder.test.tsx
+new file mode 100644
+index 0000000..ec32467
+--- /dev/null
++++ b/frontend/src/routes/project/gitops-setup/DeployOrder.test.tsx
+@@ -0,0 +1,127 @@
++import { create } from "@bufbuild/protobuf";
++import { act, type ReactNode } from "react";
++import { createRoot } from "react-dom/client";
++import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
++import {
++  type Database,
++  DatabaseSchema$,
++} from "@/types/proto-es/v1/database_service_pb";
++import { DeployOrder } from "./DeployOrder";
++import type { DeployTargets } from "./useDeployTargets";
++
++(
++  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
++).IS_REACT_ACT_ENVIRONMENT = true;
++
++vi.mock("react-i18next", () => ({
++  initReactI18next: { type: "3rdParty", init: () => {} },
++  useTranslation: () => ({
++    t: (key: string, options?: Record<string, unknown>) =>
++      options ? `${key} ${JSON.stringify(options)}` : key,
++  }),
++}));
++
++vi.mock("@/components/DatabaseTargetDisplay", () => ({
++  DatabaseTargetDisplay: ({ database }: { database: Database }) => (
++    <span data-testid="database">{database.name}</span>
++  ),
++}));
++
++vi.mock("@/components/EnvironmentLabel", () => ({
++  EnvironmentLabel: ({ environmentName }: { environmentName: string }) => (
++    <span data-testid="environment">{environmentName}</span>
++  ),
++}));
++
++vi.mock("@/components/ui/popover", () => ({
++  Popover: ({ children }: { children: ReactNode }) => <div>{children}</div>,
++  PopoverTrigger: ({ children }: { children: ReactNode }) => (
++    <button type="button" data-testid="more">
++      {children}
++    </button>
++  ),
++  PopoverContent: ({ children }: { children: ReactNode }) => (
++    <div data-testid="more-list">{children}</div>
++  ),
++}));
++
++const db = (name: string) =>
++  create(DatabaseSchema$, { name: `instances/pg/databases/${name}` });
++
++const many = (prefix: string, count: number) =>
++  Array.from({ length: count }, (_, i) => db(`${prefix}${i + 1}`));
++
++describe("DeployOrder", () => {
++  let container: HTMLDivElement;
++  let root: ReturnType<typeof createRoot>;
++
++  const render = (targets: DeployTargets) => {
++    act(() => root.render(<DeployOrder targets={targets} />));
++  };
++
++  beforeEach(() => {
++    container = document.createElement("div");
++    document.body.appendChild(container);
++    root = createRoot(container);
++  });
++
++  afterEach(() => {
++    act(() => root.unmount());
++    container.remove();
++  });
++
++  test("shows one section per environment in the given order", () => {
++    render({
++      stages: [
++        { environment: "environments/test", id: "test", databases: [db("t1")] },
++        { environment: "environments/prod", id: "prod", databases: [db("p1")] },
++      ],
++      unassigned: [],
++      total: 2,
++      loading: false,
++    });
++    const environments = [
++      ...container.querySelectorAll('[data-testid="environment"]'),
++    ].map((e) => e.textContent);
++    expect(environments).toEqual(["environments/test", "environments/prod"]);
++    // Two databases: no total line and no "+N more".
++    expect(container.textContent).not.toContain("gitops.setup.deploy-order.summary");
++    expect(container.querySelector('[data-testid="more"]')).toBeNull();
++  });
++
++  test("shows three chips, then +N more, and the total above three", () => {
++    render({
++      stages: [{ environment: "environments/prod", id: "prod", databases: many("p", 5) }],
++      unassigned: [],
++      total: 5,
++      loading: false,
++    });
++    const section = container.querySelector("li");
++    const chips = [
++      ...(section?.querySelectorAll('[data-testid="database"]') ?? []),
++    ].filter((e) => !e.closest('[data-testid="more-list"]'));
++    expect(chips.map((e) => e.textContent)).toEqual([
++      "instances/pg/databases/p1",
++      "instances/pg/databases/p2",
++      "instances/pg/databases/p3",
++    ]);
++    expect(container.querySelector('[data-testid="more"]')?.textContent).toBe(
++      'common.n-more {"n":2}'
++    );
++    expect(container.textContent).toContain("gitops.setup.deploy-order.summary");
++  });
++
++  test("warns about databases with no environment", () => {
++    render({
++      stages: [{ environment: "environments/prod", id: "prod", databases: [db("p1")] }],
++      unassigned: [db("old1"), db("old2")],
++      total: 3,
++      loading: false,
++    });
++    const alert = container.querySelector('[role="alert"]');
++    expect(alert?.textContent).toContain(
++      'gitops.setup.deploy-order.unassigned-title {"count":2}'
++    );
++    expect(alert?.textContent).toContain("instances/pg/databases/old2");
++  });
++});
+diff --git a/frontend/src/routes/project/gitops-setup/DeployOrder.tsx b/frontend/src/routes/project/gitops-setup/DeployOrder.tsx
+new file mode 100644
+index 0000000..c7c36b0
+--- /dev/null
++++ b/frontend/src/routes/project/gitops-setup/DeployOrder.tsx
+@@ -0,0 +1,190 @@
++import { useMemo, useState } from "react";
++import { useTranslation } from "react-i18next";
++import { DatabaseTargetDisplay } from "@/components/DatabaseTargetDisplay";
++import { EnvironmentLabel } from "@/components/EnvironmentLabel";
++import { Alert } from "@/components/ui/alert";
++import { Button } from "@/components/ui/button";
++import {
++  Popover,
++  PopoverContent,
++  PopoverTrigger,
++} from "@/components/ui/popover";
++import { SearchInput } from "@/components/ui/search-input";
++import { cn } from "@/lib/utils";
++import type { Database } from "@/types/proto-es/v1/database_service_pb";
++import { extractDatabaseResourceName } from "@/utils";
++import type { DeployTargets } from "./useDeployTargets";
++
++// Databases shown as chips before the "+N more" action, as on the plan page.
++export const VISIBLE_DATABASES = 3;
++// The "+N more" list gets a search box above this many databases.
++const SEARCHABLE_DATABASES = 20;
++
++// The picked databases in the order the deploy reaches them: one section per
++// environment, joined by a line, and a warning for databases with no
++// environment.
++export function DeployOrder({ targets }: { readonly targets: DeployTargets }) {
++  const { t } = useTranslation();
++  const { stages, unassigned, total } = targets;
++  return (
++    <div className="flex flex-col gap-y-3">
++      {stages.length > 0 && (
++        <div className="flex flex-col gap-y-2">
++          {total > VISIBLE_DATABASES && (
++            <p className="text-sm text-control-light">
++              {t("gitops.setup.deploy-order.summary", {
++                databases: t("gitops.setup.deploy-order.database-count", {
++                  count: total,
++                }),
++                environments: t("gitops.setup.deploy-order.environment-count", {
++                  count: stages.length,
++                }),
++              })}
++            </p>
++          )}
++          <ol
++            aria-label={t("gitops.setup.deploy-order.label")}
++            className="rounded-sm border border-block-border px-4 py-1"
++          >
++            {stages.map((stage, index) => (
++              <li
++                key={stage.environment}
++                className="relative flex flex-col gap-y-2 py-3 pl-8"
++              >
++                {index > 0 && (
++                  <span
++                    aria-hidden="true"
++                    className="absolute top-0 left-3 h-6 w-px -translate-x-1/2 bg-control-border"
++                  />
++                )}
++                {index < stages.length - 1 && (
++                  <span
++                    aria-hidden="true"
++                    className="absolute top-6 bottom-0 left-3 w-px -translate-x-1/2 bg-control-border"
++                  />
++                )}
++                <span
++                  aria-hidden="true"
++                  className="absolute top-6 left-3 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-control-border bg-background"
++                />
++                <div className="flex h-6 items-center">
++                  <EnvironmentLabel environmentName={stage.environment} />
++                </div>
++                <DatabaseChips databases={stage.databases} />
++              </li>
++            ))}
++          </ol>
++        </div>
++      )}
++      {unassigned.length > 0 && (
++        <Alert
++          variant="warning"
++          title={t("gitops.setup.deploy-order.unassigned-title", {
++            count: unassigned.length,
++          })}
++          description={t("gitops.setup.deploy-order.unassigned-description", {
++            count: unassigned.length,
++          })}
++        >
++          <DatabaseChips className="mt-2" databases={unassigned} />
++        </Alert>
++      )}
++    </div>
++  );
++}
++
++export function DatabaseChips({
++  databases,
++  className,
++}: {
++  readonly databases: Database[];
++  readonly className?: string;
++}) {
++  const visible = databases.slice(0, VISIBLE_DATABASES);
++  const extra = databases.slice(VISIBLE_DATABASES);
++  return (
++    <div className={cn("flex min-w-0 flex-wrap items-center gap-2", className)}>
++      {visible.map((database) => (
++        <DatabaseChip key={database.name} database={database} />
++      ))}
++      {extra.length > 0 && <MoreDatabases databases={extra} />}
++    </div>
++  );
++}
++
++function DatabaseChip({ database }: { readonly database: Database }) {
++  return (
++    <div className="inline-flex max-w-full min-w-0 cursor-default items-center gap-x-1 rounded-sm border bg-control-bg/50 px-2 py-1">
++      <DatabaseTargetDisplay database={database} />
++    </div>
++  );
++}
++
++function MoreDatabases({ databases }: { readonly databases: Database[] }) {
++  const { t } = useTranslation();
++  const [searchText, setSearchText] = useState("");
++  const filtered = useMemo(() => {
++    const query = searchText.trim().toLowerCase();
++    if (!query) return databases;
++    return databases.filter(
++      (database) =>
++        extractDatabaseResourceName(database.name)
++          .databaseName.toLowerCase()
++          .includes(query) || database.name.toLowerCase().includes(query)
++    );
++  }, [databases, searchText]);
++  return (
++    <Popover>
++      <PopoverTrigger
++        render={
++          <Button
++            className="text-accent hover:bg-accent/10 hover:text-accent"
++            size="xs"
++            type="button"
++            appearance="secondary"
++          />
++        }
++      >
++        {t("common.n-more", { n: databases.length })}
++      </PopoverTrigger>
++      <PopoverContent
++        align="start"
++        className="w-[min(520px,calc(100vw-2rem))] p-0"
++        side="bottom"
++      >
++        <div className="border-b border-control-border px-3 py-2">
++          <div className="text-sm font-medium text-control">
++            {t("common.databases")} ({databases.length})
++          </div>
++        </div>
++        {databases.length > SEARCHABLE_DATABASES && (
++          <div className="border-b border-control-border px-3 py-2">
++            <SearchInput
++              placeholder={t("common.search")}
++              value={searchText}
++              onChange={(event) => setSearchText(event.target.value)}
++            />
++          </div>
++        )}
++        <div className="max-h-80 overflow-y-auto p-2">
++          {filtered.length > 0 ? (
++            <div className="flex flex-col gap-1">
++              {filtered.map((database) => (
++                <div
++                  key={database.name}
++                  className="min-w-0 rounded-xs px-2 py-1.5 hover:bg-control-bg"
++                >
++                  <DatabaseTargetDisplay database={database} />
++                </div>
++              ))}
++            </div>
++          ) : (
++            <div className="px-2 py-4 text-center text-sm text-control-light">
++              {t("common.no-data")}
++            </div>
++          )}
++        </div>
++      </PopoverContent>
++    </Popover>
++  );
++}
+diff --git a/frontend/src/routes/project/gitops-setup/useDeployTargets.test.ts b/frontend/src/routes/project/gitops-setup/useDeployTargets.test.ts
+new file mode 100644
+index 0000000..d9e8778
+--- /dev/null
++++ b/frontend/src/routes/project/gitops-setup/useDeployTargets.test.ts
+@@ -0,0 +1,156 @@
++import { create } from "@bufbuild/protobuf";
++import { act, createElement } from "react";
++import { createRoot } from "react-dom/client";
++import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
++import {
++  type Database,
++  DatabaseSchema$,
++} from "@/types/proto-es/v1/database_service_pb";
++import {
++  type DeployPick,
++  type DeployTargets,
++  groupByEnvironment,
++  useDeployTargets,
++} from "./useDeployTargets";
++
++(
++  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
++).IS_REACT_ACT_ENVIRONMENT = true;
++
++const mocks = vi.hoisted(() => ({
++  environmentList: [] as { name: string }[],
++  getOrFetchDBGroupByName: vi.fn(),
++  batchGetOrFetchDatabases: vi.fn(),
++}));
++
++vi.mock("@/stores/app", () => {
++  const state = () => ({
++    environmentList: mocks.environmentList,
++    getOrFetchDBGroupByName: mocks.getOrFetchDBGroupByName,
++    batchGetOrFetchDatabases: mocks.batchGetOrFetchDatabases,
++  });
++  return {
++    useAppStore: Object.assign(
++      (selector: (s: ReturnType<typeof state>) => unknown) => selector(state()),
++      { getState: state }
++    ),
++  };
++});
++
++const db = (name: string, environment?: string): Database =>
++  create(DatabaseSchema$, {
++    name: `instances/pg/databases/${name}`,
++    effectiveEnvironment: environment,
++  });
++
++const ORDER = [
++  "environments/test",
++  "environments/staging",
++  "environments/prod",
++];
++
++describe("groupByEnvironment", () => {
++  test("follows the workspace environment order", () => {
++    const { stages, unassigned } = groupByEnvironment(
++      [
++        db("p1", "environments/prod"),
++        db("t1", "environments/test"),
++        db("p2", "environments/prod"),
++      ],
++      ORDER
++    );
++    expect(stages.map((s) => [s.id, s.databases.map((d) => d.name)])).toEqual([
++      ["test", ["instances/pg/databases/t1"]],
++      ["prod", ["instances/pg/databases/p1", "instances/pg/databases/p2"]],
++    ]);
++    expect(unassigned).toEqual([]);
++  });
++
++  test("leaves out databases with no environment", () => {
++    const { stages, unassigned } = groupByEnvironment(
++      [db("t1", "environments/test"), db("old"), db("older", "")],
++      ORDER
++    );
++    expect(stages.map((s) => s.id)).toEqual(["test"]);
++    expect(unassigned.map((d) => d.name)).toEqual([
++      "instances/pg/databases/old",
++      "instances/pg/databases/older",
++    ]);
++  });
++
++  test("puts an environment missing from the order first, as the rollout does", () => {
++    const { stages } = groupByEnvironment(
++      [db("p1", "environments/prod"), db("x1", "environments/sandbox")],
++      ORDER
++    );
++    expect(stages.map((s) => s.id)).toEqual(["sandbox", "prod"]);
++  });
++});
++
++describe("useDeployTargets", () => {
++  let container: HTMLDivElement;
++  let root: ReturnType<typeof createRoot>;
++  let result: DeployTargets | undefined;
++
++  const Probe = ({ pick }: { pick: DeployPick | undefined }) => {
++    result = useDeployTargets(pick);
++    return null;
++  };
++
++  const render = async (pick: DeployPick | undefined) => {
++    await act(async () => {
++      root.render(createElement(Probe, { pick }));
++    });
++  };
++
++  beforeEach(() => {
++    mocks.environmentList = ORDER.map((name) => ({ name }));
++    mocks.getOrFetchDBGroupByName.mockReset();
++    mocks.batchGetOrFetchDatabases.mockReset();
++    container = document.createElement("div");
++    root = createRoot(container);
++    result = undefined;
++  });
++
++  afterEach(() => {
++    act(() => root.unmount());
++  });
++
++  test("expands a group to the databases it matches", async () => {
++    mocks.getOrFetchDBGroupByName.mockResolvedValue({
++      matchedDatabases: [
++        { name: "instances/pg/databases/t1" },
++        { name: "instances/pg/databases/old" },
++      ],
++    });
++    mocks.batchGetOrFetchDatabases.mockResolvedValue([
++      db("t1", "environments/test"),
++      db("old"),
++    ]);
++    await render({ kind: "group", name: "projects/shop/databaseGroups/all" });
++    expect(mocks.getOrFetchDBGroupByName).toHaveBeenCalledWith(
++      "projects/shop/databaseGroups/all",
++      expect.objectContaining({ silent: true })
++    );
++    expect(mocks.batchGetOrFetchDatabases).toHaveBeenCalledWith(
++      ["instances/pg/databases/t1", "instances/pg/databases/old"],
++      true
++    );
++    expect(result?.loading).toBe(false);
++    expect(result?.total).toBe(2);
++    expect(result?.stages.map((s) => s.id)).toEqual(["test"]);
++    expect(result?.unassigned).toHaveLength(1);
++  });
++
++  test("loads picked databases and nothing for an empty pick", async () => {
++    mocks.batchGetOrFetchDatabases.mockResolvedValue([
++      db("p1", "environments/prod"),
++    ]);
++    await render({ kind: "databases", names: ["instances/pg/databases/p1"] });
++    expect(result?.stages.map((s) => s.id)).toEqual(["prod"]);
++
++    await render({ kind: "databases", names: [] });
++    expect(result).toMatchObject({ total: 0, loading: false, stages: [] });
++    expect(mocks.batchGetOrFetchDatabases).toHaveBeenCalledTimes(1);
++  });
++});
+diff --git a/frontend/src/routes/project/gitops-setup/useDeployTargets.ts b/frontend/src/routes/project/gitops-setup/useDeployTargets.ts
+new file mode 100644
+index 0000000..46f6d99
+--- /dev/null
++++ b/frontend/src/routes/project/gitops-setup/useDeployTargets.ts
+@@ -0,0 +1,124 @@
++import { useEffect, useMemo, useState } from "react";
++import { useAppStore } from "@/stores/app";
++import { DatabaseGroupView } from "@/types/proto-es/v1/database_group_service_pb";
++import type { Database } from "@/types/proto-es/v1/database_service_pb";
++
++// What GitOps deploys to: one database group, or one or more databases.
++export type DeployPick =
++  | { kind: "group"; name: string }
++  | { kind: "databases"; names: string[] };
++
++export interface DeployStage {
++  // The environment resource name, such as "environments/prod".
++  environment: string;
++  // The environment ID, such as "prod": the deploy job's target stage.
++  id: string;
++  databases: Database[];
++}
++
++export interface DeployTargets {
++  // One stage per environment, in the order the rollout deploys them.
++  stages: DeployStage[];
++  // Databases with no environment. The rollout skips them.
++  unassigned: Database[];
++  // Every picked database, with or without an environment.
++  total: number;
++  loading: boolean;
++}
++
++const environmentOf = (database: Database) =>
++  database.effectiveEnvironment ?? "";
++
++// Groups databases the way the rollout does: environments in the workspace
++// order, an environment missing from that order first, and databases with no
++// environment left out.
++export function groupByEnvironment(
++  databases: Database[],
++  environmentOrder: string[]
++): Pick<DeployTargets, "stages" | "unassigned"> {
++  const byEnvironment = new Map<string, Database[]>();
++  const unassigned: Database[] = [];
++  for (const database of databases) {
++    const environment = environmentOf(database);
++    if (!environment) {
++      unassigned.push(database);
++      continue;
++    }
++    const list = byEnvironment.get(environment) ?? [];
++    list.push(database);
++    byEnvironment.set(environment, list);
++  }
++  const toStage = (environment: string): DeployStage => ({
++    environment,
++    id: environment.replace(/^environments\//, ""),
++    databases: byEnvironment.get(environment) ?? [],
++  });
++  const ordered = environmentOrder.filter((e) => byEnvironment.has(e));
++  const unknown = [...byEnvironment.keys()].filter(
++    (e) => !environmentOrder.includes(e)
++  );
++  return {
++    stages: [...unknown, ...ordered].map(toStage),
++    unassigned,
++  };
++}
++
++// The pick as a string, so the effect below reruns only when it changes.
++// Resource names never contain a comma.
++const pickKey = (pick: DeployPick | undefined) => {
++  if (!pick) return "";
++  if (pick.kind === "group") return pick.name ? `group:${pick.name}` : "";
++  return pick.names.length > 0 ? `databases:${pick.names.join(",")}` : "";
++};
++
++const namesOf = async (key: string): Promise<string[]> => {
++  const store = useAppStore.getState();
++  if (key.startsWith("group:")) {
++    const group = await store.getOrFetchDBGroupByName(
++      key.slice("group:".length),
++      { view: DatabaseGroupView.FULL, silent: true }
++    );
++    return group.matchedDatabases.map((database) => database.name);
++  }
++  return key.slice("databases:".length).split(",");
++};
++
++// Loads the picked databases, expanding a group to the databases it matches,
++// and groups them by environment.
++export function useDeployTargets(pick: DeployPick | undefined): DeployTargets {
++  const environmentList = useAppStore((s) => s.environmentList);
++  const key = pickKey(pick);
++  const [loaded, setLoaded] = useState<{ key: string; databases: Database[] }>({
++    key: "",
++    databases: [],
++  });
++
++  useEffect(() => {
++    if (key === "") return;
++    let cancelled = false;
++    const load = async () => {
++      const names = await namesOf(key);
++      const databases =
++        names.length > 0
++          ? await useAppStore.getState().batchGetOrFetchDatabases(names, true)
++          : [];
++      if (!cancelled) setLoaded({ key, databases });
++    };
++    void load().catch(() => {
++      if (!cancelled) setLoaded({ key, databases: [] });
++    });
++    return () => {
++      cancelled = true;
++    };
++  }, [key]);
++
++  return useMemo(() => {
++    const loading = key !== "" && loaded.key !== key;
++    const databases = loaded.key === key ? loaded.databases : [];
++    const { stages, unassigned } = groupByEnvironment(
++      databases,
++      environmentList.map((environment) => environment.name)
++    );
++    return { stages, unassigned, total: databases.length, loading };
++  }, [key, loaded, environmentList]);
++}
