@@ -11,7 +11,18 @@ To get there, a pipeline in the repository must act in Bytebase on the right dat
 
 ### What changes
 
-The GitOps page becomes the setup itself: one outcome sentence, one line that says which CI/CD platforms setup writes files for, then three steps. Nothing is saved; the files in the repository are the setup.
+Two improvements and one fix.
+
+**Improvements**
+
+1. **Setup is a step-by-step flow.** The GitOps page becomes three steps, each with one question or one task: Databases, Workload identity, Workflow files. A row on top names every step, and Back and Continue stay at the bottom of the window. Other products guide a setup with choices the same way, for example the deployment wizard in Flyway Desktop. The owner makes one decision at a time and sees its result before the next one. Nothing is saved; the files in the repository are the setup.
+2. **Step 1 shows the deploy order before any file is written.** The picked database group or databases are listed by environment, in the order the rollout deploys them. A picked group that matches databases with no environment shows a warning, because the rollout skips those databases.
+
+**Fix**
+
+3. **The generated deploy jobs follow the project's environments.** The generator wrote two fixed deploy jobs, `deploy-to-test` and `deploy-to-prod`, with `--target-stage=environments/test` and `environments/prod`, whatever environments the databases were in. In a project with other environment IDs, the deploy command does not find the stage, logs it and ends without an error, so the job passes and deploys nothing. An environment other than `test` or `prod` got no deploy job. The generator now writes one deploy job per environment of the picked databases, in the workspace's environment order, and each job needs the one before it. The action itself is not changed and still ends without an error for an unknown stage (BYT-10426).
+
+The steps:
 
 | Step | Question | What the owner does |
 |---|---|---|
@@ -19,17 +30,15 @@ The GitOps page becomes the setup itself: one outcome sentence, one line that sa
 | 2. Workload identity | Which workload identity does your workflow sign in as? | Picks or creates one. Sees its git provider with its logo, the repositories that can sign in, and its role. |
 | 3. Workflow files | Add the files to your repository | Copies the files, which already hold the databases, environments, identity and migration folder. Each file shows its path and a copy button. A file longer than 12 lines shows its first 12 lines, with "Show all N lines" under them. Copy always takes the whole file. The repository link carries the git provider's logo. |
 
-Before and after:
+Other changes, before and after:
 
 | | Before | After |
 |---|---|---|
-| Layout | Four stacked sections | Three steps, step row on top, Back and Continue in a sticky footer |
-| Deploy jobs | Fixed `test` and `prod` stages | One deploy job per environment of the picked databases, in the workspace order |
 | Deploy branch | Read from the identity, `main` by default | The repository's default branch, read at run time |
 | Migration folder | Fixed `migrations/` | `migrations/` by default, editable |
 | Provider | GitHub/GitLab tabs, with a mismatch warning | The identity's git provider decides; an identity for another OIDC provider cannot be picked. A line on every step says setup writes files for GitHub Actions and GitLab CI |
 | Sign-in in the files | An 18-line token exchange script in every GitHub job, 10 lines in every GitLab job | No sign-in step. `bytebase-action` signs in as `BYTEBASE_WORKLOAD_IDENTITY` (#21974) |
-| Databases with no environment | Accepted, then skipped by the rollout | Cannot be picked; a group that matches some shows a warning |
+| Databases with no environment | Accepted, then skipped by the rollout | Cannot be picked one by one; a group that matches some shows a warning |
 | Identity with no role | Accepted | Warning with a link to Members; Continue is disabled |
 | Creating an identity | The dialog ends on its Done step | Opened from setup, the dialog offers GitHub Actions and GitLab CI only, closes after Create, and the identity is picked |
 | External URL not set | A failed check in the list; files hold an empty URL | Warning on every step; files show `{EXTERNAL_URL}` marked; copy is off |
