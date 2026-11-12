@@ -192,7 +192,8 @@ Resolves part 2.
   closes after Create, and the new identity comes back picked (D10).
 - *Setup shows:* what it reads from the picked identity, in a read-only box: Git provider,
   Repositories that can sign in (one repository, or every repository of an owner), and Role in this
-  project.
+  project. The git provider's logo shows before its name, so the owner sees which platform the
+  identity belongs to before reading the row. It is the logo on the Create dialog's cards.
 - *Setup checks,* shown only when one fails, as a task with a link:
   - The git provider is GitHub Actions or GitLab CI. An identity for another OIDC provider is listed
     but cannot be picked, because setup has no files for it. The Create dialog cannot return one,
@@ -211,7 +212,8 @@ order:
 1. The migration folder, `migrations/`, read-only with an Edit action. Changing it updates the
    files.
 2. The repository, as a link, when the identity names one. A workload identity does not require a
-   repository: it can trust every repository of an owner. In that case this line is left out.
+   repository: it can trust every repository of an owner. In that case this line is left out. The
+   git provider's logo shows before the link, so the owner sees where the link leads.
 3. The generated files for the identity's git provider, each with its path in a header bar and a
    copy button, one under the other, with no tabs. The header bar holds the path and the copy
    button, and nothing else. A long file starts short (see below). GitHub Actions:
@@ -444,6 +446,7 @@ Expected files. The list is refined when implementation starts.
 |---|---|
 | `frontend/src/routes/project/ProjectGitOpsPage.tsx`, with a new test | Becomes the three-step setup: outcome sentence, preconditions, step row, step body, footer (D1, D2, D7, D8, D9). |
 | `frontend/src/routes/project/gitops-setup/{DatabasesStep,WorkloadIdentityStep,WorkflowFilesStep}.tsx` | New: one component per step (D3, D4, D5). |
+| `frontend/src/routes/project/gitops-setup/ProviderLogo.tsx` | New: the GitHub or GitLab logo at 16px, from the files in `frontend/src/assets/git/` that the Create dialog and the release page already use (D4, D5). |
 | `frontend/src/routes/project/gitops-setup/DeployOrder.tsx` and its test | New: the deploy order list, the "+N more" list and the no-environment warning (D3). |
 | `frontend/src/routes/project/gitopsWorkflowYaml.ts` and its test | Takes the picked targets, their environments, the identity and the folder, and returns the files for the identity's git provider (D5, D6). The files no longer carry the token exchange script, which is the generator change of [#21974]. The exact YAML is BYT-10424. |
 | `frontend/src/routes/project/WorkloadIdentitySelect.tsx` | Lists every identity of the project and disables those for another OIDC provider (D4). |
@@ -474,6 +477,8 @@ Tests:
   - The Create dialog opens with GitHub Actions and GitLab CI only.
   - Creating an identity from step 2 returns to step 2 with it picked.
   - The repository link shows only when the identity names a repository.
+  - The git provider's logo shows before the provider name in step 2 and before the repository link
+    in step 3, for GitHub Actions and for GitLab CI.
   - Editing the folder changes the paths in the files and in the developers' line.
   - A file with more than 12 lines shows 12 until "Show all", and the copy button holds the whole
     file before and after. The GitLab `include` lines have no action.

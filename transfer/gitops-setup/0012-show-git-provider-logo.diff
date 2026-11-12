@@ -1,0 +1,135 @@
+diff --git a/frontend/src/routes/project/ProjectGitOpsPage.test.tsx b/frontend/src/routes/project/ProjectGitOpsPage.test.tsx
+index 51c0d31..f192691 100644
+--- a/frontend/src/routes/project/ProjectGitOpsPage.test.tsx
++++ b/frontend/src/routes/project/ProjectGitOpsPage.test.tsx
+@@ -2,6 +2,8 @@ import { create } from "@bufbuild/protobuf";
+ import { act } from "react";
+ import { createRoot, type Root } from "react-dom/client";
+ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
++import githubIcon from "@/assets/git/github.svg";
++import gitlabIcon from "@/assets/git/gitlab.svg";
+ import { BindingSchema, IamPolicySchema } from "@/types/proto-es/v1/iam_policy_pb";
+ import {
+   type Database,
+@@ -549,6 +551,40 @@ describe("ProjectGitOpsPage", () => {
+     expect(container.textContent).not.toContain("gitops.setup.files.repository");
+   });
+ 
++  test("the git provider's logo shows before the provider name and the repository link", async () => {
++    const cases = [
++      { identity: DEPLOY_CI, logo: githubIcon },
++      { identity: NEW_CI, logo: gitlabIcon },
++    ];
++    for (const [index, { identity, logo }] of cases.entries()) {
++      if (index > 0) {
++        act(() => root.unmount());
++        container.remove();
++      }
++      setProject({
++        groups: 1,
++        databases: [databaseOf("shop", "environments/prod")],
++        identities: [identity],
++        members: [identity],
++      });
++      await render();
++      await click(continueButton());
++      expect(currentStep()).toBe("gitops.setup.steps.workload-identity");
++      // The first fact is the git provider.
++      expect(
++        container.querySelector("dd")?.querySelector("img")?.getAttribute("src")
++      ).toBe(logo);
++      expect(container.querySelectorAll("img")).toHaveLength(1);
++
++      await click(continueButton());
++      const link = Array.from(container.querySelectorAll("a")).find(
++        (a) => a.textContent === "acme-corp/deploy"
++      );
++      expect(link?.querySelector("img")?.getAttribute("src")).toBe(logo);
++      expect(container.querySelectorAll("img")).toHaveLength(1);
++    }
++  });
++
+   test("editing the folder changes the files and the developers' line", async () => {
+     await openStep3(DEPLOY_CI);
+     expect(fileText()).toContain('"migrations/*.sql"');
+diff --git a/frontend/src/routes/project/gitops-setup/ProviderLogo.tsx b/frontend/src/routes/project/gitops-setup/ProviderLogo.tsx
+new file mode 100644
+index 0000000..9225d75
+--- /dev/null
++++ b/frontend/src/routes/project/gitops-setup/ProviderLogo.tsx
+@@ -0,0 +1,18 @@
++import githubIcon from "@/assets/git/github.svg";
++import gitlabIcon from "@/assets/git/gitlab.svg";
++import type { WorkflowProvider } from "../gitopsWorkflowYaml";
++
++const LOGOS: Record<WorkflowProvider, string> = {
++  github: githubIcon,
++  gitlab: gitlabIcon,
++};
++
++// The git provider's logo, placed before text that names the provider or one
++// of its repositories. The text carries the meaning, so the image has no name.
++export function ProviderLogo({
++  provider,
++}: {
++  readonly provider: WorkflowProvider;
++}) {
++  return <img src={LOGOS[provider]} alt="" className="size-4 shrink-0" />;
++}
+diff --git a/frontend/src/routes/project/gitops-setup/WorkflowFilesStep.tsx b/frontend/src/routes/project/gitops-setup/WorkflowFilesStep.tsx
+index 2a600bf..36494a1 100644
+--- a/frontend/src/routes/project/gitops-setup/WorkflowFilesStep.tsx
++++ b/frontend/src/routes/project/gitops-setup/WorkflowFilesStep.tsx
+@@ -18,6 +18,7 @@ import {
+   type WorkflowFile,
+   type WorkflowProvider,
+ } from "../gitopsWorkflowYaml";
++import { ProviderLogo } from "./ProviderLogo";
+ 
+ // A file with more lines than this starts cut here, with an action that shows
+ // the rest. The step is then short enough to show which files there are.
+@@ -116,9 +117,10 @@ export function WorkflowFilesStep({
+             href={repositoryUrl}
+             target="_blank"
+             rel="noreferrer"
+-            className="self-start text-sm text-accent hover:underline"
++            className="inline-flex max-w-full items-center gap-x-1.5 self-start text-sm text-accent hover:underline"
+           >
+-            {repositoryName}
++            <ProviderLogo provider={provider} />
++            <span className="min-w-0 wrap-anywhere">{repositoryName}</span>
+           </a>
+         </Field>
+       )}
+diff --git a/frontend/src/routes/project/gitops-setup/WorkloadIdentityStep.tsx b/frontend/src/routes/project/gitops-setup/WorkloadIdentityStep.tsx
+index 340d180..a22645c 100644
+--- a/frontend/src/routes/project/gitops-setup/WorkloadIdentityStep.tsx
++++ b/frontend/src/routes/project/gitops-setup/WorkloadIdentityStep.tsx
+@@ -14,6 +14,7 @@ import { getWorkloadIdentityProviderText } from "@/utils";
+ import { displayRoleTitle } from "@/utils/role";
+ import { WorkloadIdentitySelect } from "../WorkloadIdentitySelect";
+ import { repositoriesOf, workflowProviderOf } from "./identity";
++import { ProviderLogo } from "./ProviderLogo";
+ 
+ // Step 2: the workload identity the workflow signs in as, and what setup reads
+ // from it.
+@@ -106,11 +107,14 @@ export function WorkloadIdentityStep({
+           </h4>
+           <dl className="flex flex-col gap-y-2 rounded-sm border border-block-border bg-control-bg/50 p-3 text-sm">
+             <Fact label={t("gitops.setup.identity.git-provider")}>
+-              {getWorkloadIdentityProviderText(
+-                identity.workloadIdentityConfig?.providerType ??
+-                  WorkloadIdentityConfig_ProviderType.PROVIDER_TYPE_UNSPECIFIED,
+-                t("settings.members.workload-identity-generic-oidc")
+-              )}
++              <span className="flex items-center gap-x-1.5">
++                {provider && <ProviderLogo provider={provider} />}
++                {getWorkloadIdentityProviderText(
++                  identity.workloadIdentityConfig?.providerType ??
++                    WorkloadIdentityConfig_ProviderType.PROVIDER_TYPE_UNSPECIFIED,
++                  t("settings.members.workload-identity-generic-oidc")
++                )}
++              </span>
+             </Fact>
+             <Fact label={t("gitops.setup.identity.repositories")}>
+               {repositoriesText(identity)}

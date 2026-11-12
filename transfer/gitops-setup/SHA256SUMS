@@ -9,4 +9,5 @@ b6d4dbcb8aa5ca2a047327bd1ec1141a3473a6e5dd88a866a9dea8c961ce6c4e  0003-feat-gito
 c91583b6d0ceaacff997d478d17f2f1d1b78b6c434045a1dd23bdd2cf8c34c27  0009-drop-token-exchange-script-from-workflow-files.diff
 7a11c154859e78219b6e207f0aba84618bc4815e5e2df2bc67cac4dca7118d9e  0010-cut-long-workflow-files-with-show-all.diff
 047068ae89c49cc85e15c27db118368e6debbaa3555b550e8c9f2c1f32ed09d8  0011-remove-file-labels-in-step-3.diff
-724ccb42c5d3dfdf3a5257627a7a3001d7a444d1049dc506e84d0aca3b2196b2  gitops-setup-page.v7.md
+ff94b8e4db00ba018d98cae54bd7f5721506d64d213b881bb8cd61157c890dfa  0012-show-git-provider-logo.diff
+1b8d20ebfaecea96def3c90cacebba0af0c005ba5b158cfade36406c8e063f3e  gitops-setup-page.v8.md
