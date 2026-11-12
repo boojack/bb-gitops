@@ -1,0 +1,129 @@
+diff --git a/frontend/src/routes/project/ProjectGitOpsPage.test.tsx b/frontend/src/routes/project/ProjectGitOpsPage.test.tsx
+index f4e9c7e..5bd93a8 100644
+--- a/frontend/src/routes/project/ProjectGitOpsPage.test.tsx
++++ b/frontend/src/routes/project/ProjectGitOpsPage.test.tsx
+@@ -200,8 +200,12 @@ vi.mock("@/components/ui/copy-button", () => ({
+ }));
+ 
+ vi.mock("@/components/ui/combobox", () => ({
+-  Combobox: ({ value }: { value: string }) => (
+-    <div data-testid="group-select" data-value={value} />
++  Combobox: ({ value, portal }: { value: string; portal?: boolean }) => (
++    <div
++      data-testid="group-select"
++      data-value={value}
++      data-portal={String(!!portal)}
++    />
+   ),
+ }));
+ 
+@@ -209,11 +213,17 @@ vi.mock("@/components/DatabaseSelect", () => ({
+   DatabaseSelect: ({
+     value,
+     onChange,
++    portal,
+   }: {
+     value: string[];
+     onChange: (names: string[]) => void;
++    portal?: boolean;
+   }) => (
+-    <div data-testid="database-select" data-value={value.join(",")}>
++    <div
++      data-testid="database-select"
++      data-value={value.join(",")}
++      data-portal={String(!!portal)}
++    >
+       <button
+         type="button"
+         onClick={() => onChange(["instances/pg-prod/databases/shop_a"])}
+@@ -251,12 +261,18 @@ vi.mock("./WorkloadIdentitySelect", () => ({
+     value,
+     onChange,
+     disabledReason,
++    portal,
+   }: {
+     value: string;
+     onChange: (name: string) => void;
+     disabledReason: (wi: WorkloadIdentity) => string | undefined;
++    portal?: boolean;
+   }) => (
+-    <div data-testid="identity-select" data-value={value}>
++    <div
++      data-testid="identity-select"
++      data-value={value}
++      data-portal={String(!!portal)}
++    >
+       {mocks.state.identities.map((wi) => {
+         const reason = disabledReason(wi);
+         return (
+@@ -569,6 +585,35 @@ describe("ProjectGitOpsPage", () => {
+     expect(container.textContent).toContain("gitops.setup.files.url-missing");
+   });
+ 
++  test("every picker opens its menu above the sticky footer", async () => {
++    const portal = (testId: string) =>
++      container
++        .querySelector(`[data-testid="${testId}"]`)
++        ?.getAttribute("data-portal");
++    setProject({
++      groups: 1,
++      databases: [databaseOf("shop", "environments/prod")],
++      identities: [DEPLOY_CI],
++      members: [DEPLOY_CI],
++    });
++    await render();
++    expect(portal("group-select")).toBe("true");
++    act(() => root.unmount());
++    container.remove();
++
++    // With no group the Databases tab opens and its one database is picked.
++    setProject({
++      databases: [databaseOf("shop", "environments/prod")],
++      identities: [DEPLOY_CI],
++      members: [DEPLOY_CI],
++    });
++    await render();
++    expect(portal("database-select")).toBe("true");
++
++    await click(continueButton());
++    expect(portal("identity-select")).toBe("true");
++  });
++
+   test("the footer holds Continue on steps 1 and 2 and only Back on step 3", async () => {
+     await openStep3(DEPLOY_CI);
+     expect(footerButtons()).toEqual(["common.back"]);
+diff --git a/frontend/src/routes/project/gitops-setup/DatabasesStep.tsx b/frontend/src/routes/project/gitops-setup/DatabasesStep.tsx
+index 148276f..512a19c 100644
+--- a/frontend/src/routes/project/gitops-setup/DatabasesStep.tsx
++++ b/frontend/src/routes/project/gitops-setup/DatabasesStep.tsx
+@@ -110,7 +110,10 @@ export function DatabasesStep({
+               action={groupName && <ViewGroupLink groupName={groupName} />}
+               hint={t("gitops.setup.databases.group-hint")}
+             >
++              {/* The sticky footer would cover an inline menu, so the
++                  pickers on this page render theirs in the overlay layer. */}
+               <Combobox
++                portal
+                 value={groupName}
+                 options={groups.map((group) => ({
+                   value: group.name,
+@@ -145,6 +148,7 @@ export function DatabasesStep({
+               hint={t("gitops.setup.databases.databases-hint")}
+             >
+               <DatabaseSelect
++                portal
+                 multiple
+                 requireEnvironment
+                 projectName={projectName}
+diff --git a/frontend/src/routes/project/gitops-setup/WorkloadIdentityStep.tsx b/frontend/src/routes/project/gitops-setup/WorkloadIdentityStep.tsx
+index 05f062e..e64bfdc 100644
+--- a/frontend/src/routes/project/gitops-setup/WorkloadIdentityStep.tsx
++++ b/frontend/src/routes/project/gitops-setup/WorkloadIdentityStep.tsx
+@@ -83,6 +83,7 @@ export function WorkloadIdentityStep({
+         <Field label={t("gitops.setup.identity.label")}>
+           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+             <WorkloadIdentitySelect
++              portal
+               projectName={projectName}
+               value={identityName}
+               placeholder={t("gitops.setup.identity.placeholder")}
