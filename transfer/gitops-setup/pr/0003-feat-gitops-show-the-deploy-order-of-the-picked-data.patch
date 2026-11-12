@@ -1,4 +1,4 @@
-From 691424aeb239111ca2d580dd6d970f0a861793cf Mon Sep 17 00:00:00 2001
+From be9380061e3ccdf1e2d015238f11798e8a024681 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Thu, 12 Nov 2026 03:22:01 +0000
 Subject: [PATCH 3/5] feat(gitops): show the deploy order of the picked
@@ -25,7 +25,7 @@ page does, and warns about databases with no environment.
  create mode 100644 frontend/src/routes/project/gitops-setup/useDeployTargets.ts
 
 diff --git a/frontend/src/locales/en-US.json b/frontend/src/locales/en-US.json
-index dd086f6..78c1910 100644
+index 7974a5d..c4ae356 100644
 --- a/frontend/src/locales/en-US.json
 +++ b/frontend/src/locales/en-US.json
 @@ -1317,6 +1317,20 @@
@@ -50,7 +50,7 @@ index dd086f6..78c1910 100644
        "description": "Verify the workflow is working end-to-end with a sample migration file.",
        "naming-convention": "Migration files are applied in lexicographic order. Use a timestamp or sequence prefix, e.g. 20240101000000_create_table.sql. Append _ddl or _dml to indicate the change type.",
 diff --git a/frontend/src/locales/es-ES.json b/frontend/src/locales/es-ES.json
-index a93d8c0..32e284d 100644
+index 6a56c85..36f007b 100644
 --- a/frontend/src/locales/es-ES.json
 +++ b/frontend/src/locales/es-ES.json
 @@ -1317,6 +1317,20 @@
@@ -75,7 +75,7 @@ index a93d8c0..32e284d 100644
        "description": "Verifique que el flujo de trabajo funciona de extremo a extremo con un archivo de migración de ejemplo.",
        "naming-convention": "Los archivos de migración se aplican en orden lexicográfico. Use un prefijo de marca de tiempo o secuencia, p. ej. 20240101000000_create_table.sql. Agregue _ddl o _dml para indicar el tipo de cambio.",
 diff --git a/frontend/src/locales/ja-JP.json b/frontend/src/locales/ja-JP.json
-index 93b0362..32d0c26 100644
+index 6b297a2..aa4d661 100644
 --- a/frontend/src/locales/ja-JP.json
 +++ b/frontend/src/locales/ja-JP.json
 @@ -1317,6 +1317,20 @@
@@ -100,7 +100,7 @@ index 93b0362..32d0c26 100644
        "description": "サンプルマイグレーションファイルでワークフロー全体が正常に動作するか確認します。",
        "naming-convention": "マイグレーションファイルは辞書順に適用されます。タイムスタンプまたはシーケンス番号のプレフィックスを使用してください（例: 20240101000000_create_table.sql）。変更タイプを示すために _ddl または _dml を末尾に追加してください。",
 diff --git a/frontend/src/locales/vi-VN.json b/frontend/src/locales/vi-VN.json
-index 9f34a53..196511c 100644
+index 976a98e..1ea4716 100644
 --- a/frontend/src/locales/vi-VN.json
 +++ b/frontend/src/locales/vi-VN.json
 @@ -1317,6 +1317,20 @@
@@ -125,7 +125,7 @@ index 9f34a53..196511c 100644
        "description": "Xác minh workflow hoạt động đầy đủ với một tệp migration mẫu.",
        "naming-convention": "Các tệp migration được áp dụng theo thứ tự từ điển. Sử dụng tiền tố timestamp hoặc số thứ tự, ví dụ: 20240101000000_create_table.sql. Thêm _ddl hoặc _dml để chỉ loại thay đổi.",
 diff --git a/frontend/src/locales/zh-CN.json b/frontend/src/locales/zh-CN.json
-index f089dae..8a60e49 100644
+index 6ecf062..d2a390c 100644
 --- a/frontend/src/locales/zh-CN.json
 +++ b/frontend/src/locales/zh-CN.json
 @@ -1317,6 +1317,20 @@
@@ -770,3 +770,6 @@ index 0000000..46f6d99
 +    return { stages, unassigned, total: databases.length, loading };
 +  }, [key, loaded, environmentList]);
 +}
+-- 
+2.43.0
+

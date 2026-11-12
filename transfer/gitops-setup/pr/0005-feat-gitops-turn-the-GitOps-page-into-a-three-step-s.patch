@@ -1,4 +1,4 @@
-From eee034043946af803fe9c0dc213086c3967b45fe Mon Sep 17 00:00:00 2001
+From 2846a8c35cb4bd9af465fa1090964269b5258095 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Thu, 12 Nov 2026 03:22:02 +0000
 Subject: [PATCH 5/5] feat(gitops): turn the GitOps page into a three-step
@@ -226,7 +226,7 @@ index 9c6cfdb..0000000
 -</svg>
 \ No newline at end of file
 diff --git a/frontend/src/locales/en-US.json b/frontend/src/locales/en-US.json
-index fdde2af..4ea3a25 100644
+index 9cb4fda..b949934 100644
 --- a/frontend/src/locales/en-US.json
 +++ b/frontend/src/locales/en-US.json
 @@ -1303,22 +1303,30 @@
@@ -353,7 +353,7 @@ index fdde2af..4ea3a25 100644
    },
    "identity-provider": {
 diff --git a/frontend/src/locales/es-ES.json b/frontend/src/locales/es-ES.json
-index ec30938..67df450 100644
+index e44c87e..95d9ab7 100644
 --- a/frontend/src/locales/es-ES.json
 +++ b/frontend/src/locales/es-ES.json
 @@ -1303,22 +1303,30 @@
@@ -480,7 +480,7 @@ index ec30938..67df450 100644
    },
    "identity-provider": {
 diff --git a/frontend/src/locales/ja-JP.json b/frontend/src/locales/ja-JP.json
-index 9c42509..8f9bc49 100644
+index 064f5b2..4ddec5d 100644
 --- a/frontend/src/locales/ja-JP.json
 +++ b/frontend/src/locales/ja-JP.json
 @@ -1303,22 +1303,30 @@
@@ -607,7 +607,7 @@ index 9c42509..8f9bc49 100644
    },
    "identity-provider": {
 diff --git a/frontend/src/locales/vi-VN.json b/frontend/src/locales/vi-VN.json
-index 6a07876..650475b 100644
+index f20bc77..8493599 100644
 --- a/frontend/src/locales/vi-VN.json
 +++ b/frontend/src/locales/vi-VN.json
 @@ -1303,22 +1303,30 @@
@@ -734,7 +734,7 @@ index 6a07876..650475b 100644
    },
    "identity-provider": {
 diff --git a/frontend/src/locales/zh-CN.json b/frontend/src/locales/zh-CN.json
-index 3cfdbc8..9512f83 100644
+index 034620e..f6e904d 100644
 --- a/frontend/src/locales/zh-CN.json
 +++ b/frontend/src/locales/zh-CN.json
 @@ -1303,22 +1303,30 @@
@@ -3741,3 +3741,6 @@ index a248b37..349d177 100644
 -    - PLAN=$(jq -r .plan bytebase-metadata.json)
 -    - bytebase-action rollout --url=$BYTEBASE_URL --access-token=$BYTEBASE_ACCESS_TOKEN --project=$BYTEBASE_PROJECT --target-stage=environments/prod --plan=$PLAN`;
 -}
+-- 
+2.43.0
+

@@ -1,4 +1,4 @@
-From 6007b5b040cb1851f012d83d272c842d9f536ef5 Mon Sep 17 00:00:00 2001
+From d188f4f1eefc15d4038b19c2c8076cbcc03369ff Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Thu, 12 Nov 2026 03:22:01 +0000
 Subject: [PATCH 2/5] feat(gitops): build the workflow files from the picked
@@ -520,3 +520,6 @@ index 0dc719f..a248b37 100644
  export interface YamlParams {
    branch: string;
    runsOn?: string;
+-- 
+2.43.0
+

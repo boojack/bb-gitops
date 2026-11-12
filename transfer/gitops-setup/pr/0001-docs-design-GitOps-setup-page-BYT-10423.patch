@@ -1,4 +1,4 @@
-From e024f5cdcd50ee0e52d1014343f485444fe863d4 Mon Sep 17 00:00:00 2001
+From d87d1c8ee7948a725de6baf62060e5d6c3461cad Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Thu, 12 Nov 2026 03:22:00 +0000
 Subject: [PATCH 1/5] docs(design): GitOps setup page (BYT-10423)
@@ -670,3 +670,6 @@ index 0000000..e987e8a
 +[#21942]: https://github.com/bytebase/bytebase/pull/21942
 +[#21971]: https://github.com/bytebase/bytebase/pull/21971
 +[#21974]: https://github.com/bytebase/bytebase/pull/21974
+-- 
+2.43.0
+

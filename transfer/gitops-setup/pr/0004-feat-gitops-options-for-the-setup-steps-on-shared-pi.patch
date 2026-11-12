@@ -1,4 +1,4 @@
-From 8f8a1207f95bfaf8b959eb0cb8ca4c662db7de97 Mon Sep 17 00:00:00 2001
+From c84f3b4f2716f017b82d2bea8a2a85e31422fd63 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Thu, 12 Nov 2026 03:22:01 +0000
 Subject: [PATCH 4/5] feat(gitops): options for the setup steps on shared
@@ -398,7 +398,7 @@ index b560334..e899256 100644
          issuerUrl={issuerUrl}
          onIssuerUrlChange={setIssuerUrl}
 diff --git a/frontend/src/locales/en-US.json b/frontend/src/locales/en-US.json
-index 78c1910..fdde2af 100644
+index c4ae356..9cb4fda 100644
 --- a/frontend/src/locales/en-US.json
 +++ b/frontend/src/locales/en-US.json
 @@ -1126,6 +1126,7 @@
@@ -410,7 +410,7 @@ index 78c1910..fdde2af 100644
      "successfully-transferred-databases": "Successfully transferred databases",
      "sync-complete-for-instance": "Sync complete for instance '{{0}}'",
 diff --git a/frontend/src/locales/es-ES.json b/frontend/src/locales/es-ES.json
-index 32e284d..ec30938 100644
+index 36f007b..e44c87e 100644
 --- a/frontend/src/locales/es-ES.json
 +++ b/frontend/src/locales/es-ES.json
 @@ -1126,6 +1126,7 @@
@@ -422,7 +422,7 @@ index 32e284d..ec30938 100644
      "successfully-transferred-databases": "Bases de datos transferidas exitosamente",
      "sync-complete-for-instance": "Sincronización completada para la instancia '{{0}}'",
 diff --git a/frontend/src/locales/ja-JP.json b/frontend/src/locales/ja-JP.json
-index 32d0c26..9c42509 100644
+index aa4d661..064f5b2 100644
 --- a/frontend/src/locales/ja-JP.json
 +++ b/frontend/src/locales/ja-JP.json
 @@ -1126,6 +1126,7 @@
@@ -434,7 +434,7 @@ index 32d0c26..9c42509 100644
      "successfully-transferred-databases": "データベースの転送に成功しました",
      "sync-complete-for-instance": "インスタンス '{{0}}' の同期が完了しました",
 diff --git a/frontend/src/locales/vi-VN.json b/frontend/src/locales/vi-VN.json
-index 196511c..6a07876 100644
+index 1ea4716..f20bc77 100644
 --- a/frontend/src/locales/vi-VN.json
 +++ b/frontend/src/locales/vi-VN.json
 @@ -1126,6 +1126,7 @@
@@ -446,7 +446,7 @@ index 196511c..6a07876 100644
      "successfully-transferred-databases": "Chuyển cơ sở dữ liệu thành công",
      "sync-complete-for-instance": "Đồng bộ hoàn tất cho instance '{{0}}'",
 diff --git a/frontend/src/locales/zh-CN.json b/frontend/src/locales/zh-CN.json
-index 8a60e49..3cfdbc8 100644
+index d2a390c..034620e 100644
 --- a/frontend/src/locales/zh-CN.json
 +++ b/frontend/src/locales/zh-CN.json
 @@ -1126,6 +1126,7 @@
@@ -558,3 +558,6 @@ index 5d0e2d6..50f380e 100644
  
    return (
      <Combobox
+-- 
+2.43.0
+

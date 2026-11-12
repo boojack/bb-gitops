@@ -1,0 +1,6 @@
+3e389fb097b8df5967afe5510f71a224dc299a14392699b65fb4bd9b6f382e83  0001-docs-design-GitOps-setup-page-BYT-10423.patch
+1f090e9ddb6612a9ca95d8bb6b5472b61d25c6d9a8a0b8642f45bbbb50711191  0002-feat-gitops-build-the-workflow-files-from-the-picked.patch
+bc53c522380d93612eb2002e02aaeb4c27fe229a49087e66273af73c69bb1a1a  0003-feat-gitops-show-the-deploy-order-of-the-picked-data.patch
+66e6edaaf075134bed0ba30646bbe89d5d589d832da581cff0cb3960504bba78  0004-feat-gitops-options-for-the-setup-steps-on-shared-pi.patch
+50d247af82a4a0b2aeb01ff11cd44a881d39008d7034ffb8144f58ca4526b276  0005-feat-gitops-turn-the-GitOps-page-into-a-three-step-s.patch
+0574832d91b2ef6860b786a3b409cc8d9597cca8781cb3be912787e9a5400d2e  pr-body.md
