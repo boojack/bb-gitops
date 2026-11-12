@@ -212,8 +212,8 @@ order:
    files.
 2. The repository, as a link, when the identity names one. A workload identity does not require a
    repository: it can trust every repository of an owner. In that case this line is left out.
-3. The generated files for the identity's git provider, each in full with its path in a header bar
-   and a copy button, one under the other. There are no tabs and nothing is collapsed. GitHub
+3. The generated files for the identity's git provider, each with its path in a header bar and a
+   copy button, one under the other, with no tabs. A long file starts short (see below). GitHub
    Actions: `.github/workflows/bytebase-review.yml` reviews pull requests that change migration
    files, and `.github/workflows/bytebase-deploy.yml` deploys on each merge. GitLab CI: one
    `bytebase.gitlab-ci.yml` with both jobs, plus the one `include` line to add to `.gitlab-ci.yml`.
@@ -235,13 +235,26 @@ itself. So the files hold no token exchange script and pass no `--access-token`:
 - *GitLab CI:* the job has an `id_tokens` entry named `BYTEBASE_ID_TOKEN`, with the audience
   `bytebase`.
 
-The owner reads these files in full in step 3. Without the script a review file is about 30 lines,
-and each line is a setting the owner can check. A refused sign-in fails the job with one line that
-carries the server's reason.
+Without the script a GitHub review file is 28 lines, and each line is a setting the owner can check.
+A refused sign-in fails the job with one line that carries the server's reason.
 
 The files need an action image that has [#21974]. A self-hosted server pins the image to its own
 version, so the files and the image always match. Bytebase Cloud uses the `:cloud` image, so this
 change ships after [#21974] has reached Cloud.
+
+**A long file starts short.** The owner's task in step 3 is to copy each file into the repository.
+Shown whole, the two GitHub files for three environments are 113 lines, and the owner scrolls past
+them to find the second file and "What happens next". So a file with more than 12 lines shows its
+first 12 lines, with a fade over the last one. Under them, inside the file's box, a "Show all 28
+lines" action opens the whole file, and "Show less" closes it again. The fade and the small link
+action are the ones the plan page uses for a long description.
+
+- The copy button always takes the whole file, open or not.
+- A file with 12 lines or fewer shows whole and has no action. The GitLab `include` lines are such a
+  file.
+- Each file opens on its own. Leaving the step closes them again.
+- The rule is the same while the External URL is not set (D9). The placeholder can then be below the
+  cut, and the line above the files names it.
 
 **D6 · Every value in the files has one source, and the owner is asked for two.**
 
@@ -280,9 +293,8 @@ task at the top of the page: what is missing, who can fix it, and a link.
 Without a database, or without an identity and the permission to create one, the steps cannot be
 used. An unset External URL does not block the steps. Only a workspace admin can set it, the owner
 is often not one, and steps 1 and 2 do not need it. The task stays on top of every step. Step 3
-shows the files in full with a marked placeholder in place of the URL. Its copy buttons are
-disabled, with the reason beside them, so a file that cannot reach Bytebase is not committed by
-accident.
+shows the files with a marked placeholder in place of the URL. Its copy buttons are disabled, with
+the reason beside them, so a file that cannot reach Bytebase is not committed by accident.
 
 **D10 · Opened from setup, the workload identity dialog offers only what setup can use.** Two things
 differ, and both are opt-in. Opened anywhere else, the dialog is unchanged: it offers all three
@@ -331,6 +343,12 @@ one line.
 | GitHub Actions, names one repository | The repository link and two files |
 | GitHub Actions, trusts every repository of an owner | Two files, no repository link |
 | GitLab CI | One file and the `include` line, and "merge request" in the text |
+
+| File in step 3 | Shows |
+|---|---|
+| More than 12 lines | Its first 12 lines with a fade, and "Show all N lines" under them. Opened: every line, and "Show less" |
+| 12 lines or fewer | Every line, no action |
+| Any length | The copy button takes the whole file |
 
 | Workspace | Page shows |
 |---|---|
@@ -389,6 +407,13 @@ one line.
 
 - **Saving the setup in Bytebase.** Rejected (D1).
 - **Asking for the deploy branch.** Rejected (D12).
+- **Showing every file whole.** Rejected (D5). The owner comes to step 3 to copy the files, and the
+  copy button does not need the lines on screen. Whole files push the second file and "What happens
+  next" far down, most of all on a phone.
+- **A box of a fixed height that scrolls, for each file.** Rejected. A box that scrolls inside a
+  page that scrolls takes the wheel or the finger when the owner means to move the page.
+- **Showing only each file's header bar until it is opened.** Rejected. The first lines say what the
+  file does: its name, its trigger and its paths.
 - **Keeping the token exchange script in the files.** Rejected (D5). The script is 18 lines in every
   GitHub job and 10 in every GitLab job, so it is most of what the owner reads in step 3. It also
   prints the server's raw answer when sign-in is refused, and it passes the token from one step to
@@ -446,6 +471,8 @@ Tests:
   - Creating an identity from step 2 returns to step 2 with it picked.
   - The repository link shows only when the identity names a repository.
   - Editing the folder changes the paths in the files and in the developers' line.
+  - A file with more than 12 lines shows 12 until "Show all", and the copy button holds the whole
+    file before and after. The GitLab `include` lines have no action.
   - An unset External URL shows the task on every step, a placeholder in the files and disabled copy
     buttons.
   - The footer holds Continue on steps 1 and 2 and only Back on step 3.

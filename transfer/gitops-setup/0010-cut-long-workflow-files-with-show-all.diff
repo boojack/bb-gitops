@@ -1,0 +1,245 @@
+diff --git a/frontend/src/locales/en-US.json b/frontend/src/locales/en-US.json
+index b871098..daf34d7 100644
+--- a/frontend/src/locales/en-US.json
++++ b/frontend/src/locales/en-US.json
+@@ -1355,6 +1355,7 @@
+         "next-gitlab": "Once the files are on the default branch, the next merge request that changes the migration folder gets a Bytebase review comment. Merging it deploys.",
+         "next-title": "What happens next",
+         "repository": "Repository",
++        "show-all": "Show all {{lines}} lines",
+         "url-missing": "The files show <code>{{placeholder}}</code> where the Bytebase address goes. Copy is off until the External URL is set, because a workflow with no address cannot reach Bytebase."
+       },
+       "identity": {
+diff --git a/frontend/src/locales/es-ES.json b/frontend/src/locales/es-ES.json
+index 7be90ab..145ff47 100644
+--- a/frontend/src/locales/es-ES.json
++++ b/frontend/src/locales/es-ES.json
+@@ -1355,6 +1355,7 @@
+         "next-gitlab": "Cuando los archivos estén en la rama predeterminada, el siguiente merge request que cambie la carpeta de migraciones recibirá un comentario de revisión de Bytebase. Al fusionarlo, se despliega.",
+         "next-title": "Qué pasa después",
+         "repository": "Repositorio",
++        "show-all": "Mostrar las {{lines}} líneas",
+         "url-missing": "Los archivos muestran <code>{{placeholder}}</code> donde va la dirección de Bytebase. Copiar está desactivado hasta que se configure la URL externa, porque un flujo de trabajo sin dirección no puede conectarse a Bytebase."
+       },
+       "identity": {
+diff --git a/frontend/src/locales/ja-JP.json b/frontend/src/locales/ja-JP.json
+index d6049bc..5138b3d 100644
+--- a/frontend/src/locales/ja-JP.json
++++ b/frontend/src/locales/ja-JP.json
+@@ -1355,6 +1355,7 @@
+         "next-gitlab": "ファイルがデフォルトブランチに入ると、次にマイグレーションフォルダーを変更するマージリクエストに Bytebase のレビューコメントが付きます。マージするとデプロイされます。",
+         "next-title": "次に起こること",
+         "repository": "リポジトリ",
++        "show-all": "全 {{lines}} 行を表示",
+         "url-missing": "ファイルでは Bytebase のアドレスの位置に <code>{{placeholder}}</code> が表示されています。アドレスのないワークフローは Bytebase に接続できないため、外部 URL が設定されるまでコピーはできません。"
+       },
+       "identity": {
+diff --git a/frontend/src/locales/vi-VN.json b/frontend/src/locales/vi-VN.json
+index 5746f5b..8476334 100644
+--- a/frontend/src/locales/vi-VN.json
++++ b/frontend/src/locales/vi-VN.json
+@@ -1355,6 +1355,7 @@
+         "next-gitlab": "Khi các tệp đã có trên nhánh mặc định, merge request tiếp theo thay đổi thư mục migration sẽ nhận bình luận review của Bytebase. Khi merge, thay đổi được triển khai.",
+         "next-title": "Điều gì xảy ra tiếp theo",
+         "repository": "Repository",
++        "show-all": "Hiện tất cả {{lines}} dòng",
+         "url-missing": "Các tệp hiển thị <code>{{placeholder}}</code> ở vị trí địa chỉ Bytebase. Chức năng sao chép bị tắt cho đến khi External URL được thiết lập, vì workflow không có địa chỉ thì không thể kết nối Bytebase."
+       },
+       "identity": {
+diff --git a/frontend/src/locales/zh-CN.json b/frontend/src/locales/zh-CN.json
+index 1cb677f..ea702d8 100644
+--- a/frontend/src/locales/zh-CN.json
++++ b/frontend/src/locales/zh-CN.json
+@@ -1355,6 +1355,7 @@
+         "next-gitlab": "文件进入默认分支后，下一个修改迁移文件夹的合并请求会收到 Bytebase 审核评论。合并后即部署。",
+         "next-title": "接下来会发生什么",
+         "repository": "仓库",
++        "show-all": "显示全部 {{lines}} 行",
+         "url-missing": "文件中 Bytebase 地址的位置显示为 <code>{{placeholder}}</code>。设置外部 URL 之前无法复制，因为没有地址的工作流无法访问 Bytebase。"
+       },
+       "identity": {
+diff --git a/frontend/src/routes/project/ProjectGitOpsPage.test.tsx b/frontend/src/routes/project/ProjectGitOpsPage.test.tsx
+index 4eb36b4..e878dde 100644
+--- a/frontend/src/routes/project/ProjectGitOpsPage.test.tsx
++++ b/frontend/src/routes/project/ProjectGitOpsPage.test.tsx
+@@ -14,6 +14,7 @@ import {
+   WorkloadIdentityConfigSchema,
+   WorkloadIdentitySchema,
+ } from "@/types/proto-es/v1/workload_identity_service_pb";
++import { FILE_PREVIEW_LINES } from "./gitops-setup/WorkflowFilesStep";
+ import { ProjectGitOpsPage } from "./ProjectGitOpsPage";
+ 
+ (
+@@ -187,13 +188,20 @@ vi.mock("@/components/ui/sticky-action-footer", () => ({
+ 
+ vi.mock("@/components/ui/copy-button", () => ({
+   CopyButton: ({
++    content,
+     disabled,
+     label,
+   }: {
++    content: string;
+     disabled?: boolean;
+     label?: string;
+   }) => (
+-    <button type="button" data-copy="" disabled={disabled}>
++    <button
++      type="button"
++      data-copy=""
++      data-content={content}
++      disabled={disabled}
++    >
+       {label ?? "copy"}
+     </button>
+   ),
+@@ -621,6 +629,45 @@ describe("ProjectGitOpsPage", () => {
+     expect(portal("identity-select")).toBe("true");
+   });
+ 
++  test("a long file shows its first lines until Show all, and Copy takes the whole file", async () => {
++    await openStep3(DEPLOY_CI);
++    const shownLines = () =>
++      Array.from(container.querySelectorAll("pre")).map(
++        (pre) => (pre.textContent ?? "").split("\n").length
++      );
++    const copied = () =>
++      Array.from(container.querySelectorAll("[data-copy]")).map(
++        (b) => b.getAttribute("data-content") ?? ""
++      );
++    expect(shownLines()).toEqual([FILE_PREVIEW_LINES, FILE_PREVIEW_LINES]);
++    // The whole review file ends with its file pattern, which the cut hides.
++    expect(fileText()).not.toContain("--file-pattern=");
++    expect(copied().every((c) => c.includes("--file-pattern="))).toBe(true);
++
++    const showAll = button("gitops.setup.files.show-all");
++    expect(showAll?.getAttribute("aria-expanded")).toBe("false");
++    await click(showAll);
++    const [review, deploy] = shownLines();
++    expect(review).toBeGreaterThan(FILE_PREVIEW_LINES);
++    expect(deploy).toBe(FILE_PREVIEW_LINES);
++    expect(fileText()).toContain("--file-pattern=");
++
++    await click(button("common.show-less"));
++    expect(shownLines()).toEqual([FILE_PREVIEW_LINES, FILE_PREVIEW_LINES]);
++  });
++
++  test("a file within the limit shows in full with no action", async () => {
++    await openStep3(NEW_CI);
++    // GitLab: the workflow file, then the two include lines.
++    expect(container.querySelectorAll("pre")).toHaveLength(2);
++    expect(
++      container.querySelectorAll('[data-slot="code-block-footer"]')
++    ).toHaveLength(1);
++    expect(container.querySelectorAll("pre")[1].textContent).toBe(
++      "include:\n  - local: bytebase.gitlab-ci.yml"
++    );
++  });
++
+   test("the scope line shows on every step", async () => {
+     setProject({
+       groups: 1,
+diff --git a/frontend/src/routes/project/gitops-setup/WorkflowFilesStep.tsx b/frontend/src/routes/project/gitops-setup/WorkflowFilesStep.tsx
+index a453d9e..14cf3ca 100644
+--- a/frontend/src/routes/project/gitops-setup/WorkflowFilesStep.tsx
++++ b/frontend/src/routes/project/gitops-setup/WorkflowFilesStep.tsx
+@@ -1,6 +1,7 @@
+ import { TriangleAlert } from "lucide-react";
+ import { useState } from "react";
+ import { Trans, useTranslation } from "react-i18next";
++import { Button } from "@/components/ui/button";
+ import { CopyButton } from "@/components/ui/copy-button";
+ import { Input } from "@/components/ui/input";
+ import {
+@@ -18,6 +19,10 @@ import {
+   type WorkflowProvider,
+ } from "../gitopsWorkflowYaml";
+ 
++// A file with more lines than this starts cut here, with an action that shows
++// the rest. The step is then short enough to show which files there are.
++export const FILE_PREVIEW_LINES = 12;
++
+ // "./db/migrations/" and "db/migrations" name the same folder.
+ export const normalizeMigrationFolder = (value: string) =>
+   value.trim().replace(/^\.\//, "").replace(/\/+$/, "");
+@@ -190,8 +195,10 @@ function PlaceholderMark({
+   );
+ }
+ 
+-// One file in full: its path and a hint in a header bar with a copy button,
+-// then the content, with the External URL placeholder marked.
++// One file: its path and a hint in a header bar with a copy button, then the
++// content, with the External URL placeholder marked. A long file shows its
++// first lines until the owner asks for all of them. Copy takes the whole file
++// either way.
+ function FileBlock({
+   path,
+   hint,
+@@ -204,9 +211,14 @@ function FileBlock({
+   readonly copyOff: boolean;
+ }) {
+   const { t } = useTranslation();
+-  // Each part keyed by where it starts in the content.
++  const [showAll, setShowAll] = useState(false);
++  const lines = content.replace(/\n$/, "").split("\n");
++  const long = lines.length > FILE_PREVIEW_LINES;
++  const cut = long && !showAll;
++  const shown = cut ? lines.slice(0, FILE_PREVIEW_LINES).join("\n") : content;
++  // Each part keyed by where it starts in the shown text.
+   let start = 0;
+-  const parts = content.split(EXTERNAL_URL_PLACEHOLDER).map((text) => {
++  const parts = shown.split(EXTERNAL_URL_PLACEHOLDER).map((text) => {
+     const part = { start, text };
+     start += text.length + EXTERNAL_URL_PLACEHOLDER.length;
+     return part;
+@@ -232,16 +244,41 @@ function FileBlock({
+           />
+         </div>
+       </div>
+-      <pre className="overflow-x-auto bg-control-bg p-3 font-mono text-xs whitespace-pre text-main">
+-        {parts.map((part) => (
+-          <span key={part.start}>
+-            {part.start > 0 && (
+-              <PlaceholderMark>{EXTERNAL_URL_PLACEHOLDER}</PlaceholderMark>
+-            )}
+-            {part.text}
+-          </span>
+-        ))}
+-      </pre>
++      <div className="relative">
++        <pre className="overflow-x-auto bg-control-bg p-3 font-mono text-xs whitespace-pre text-main">
++          {parts.map((part) => (
++            <span key={part.start}>
++              {part.start > 0 && (
++                <PlaceholderMark>{EXTERNAL_URL_PLACEHOLDER}</PlaceholderMark>
++              )}
++              {part.text}
++            </span>
++          ))}
++        </pre>
++        {cut && (
++          <div
++            aria-hidden="true"
++            className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-control-bg to-transparent"
++          />
++        )}
++      </div>
++      {long && (
++        <div
++          data-slot="code-block-footer"
++          className="border-t border-block-border bg-background px-1 py-1"
++        >
++          <Button
++            appearance="link"
++            size="xs"
++            aria-expanded={showAll}
++            onClick={() => setShowAll((value) => !value)}
++          >
++            {showAll
++              ? t("common.show-less")
++              : t("gitops.setup.files.show-all", { lines: lines.length })}
++          </Button>
++        </div>
++      )}
+     </div>
+   );
+ }
