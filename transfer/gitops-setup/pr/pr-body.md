@@ -15,7 +15,7 @@ The GitOps page becomes the setup itself. Nothing is saved; the files in the rep
 
 **Improvements**
 
-- **Setup is a step-by-step flow.** Three steps with one question or one task each: Databases, Workload identity, Workflow files. A row on top names every step, and Back and Continue stay at the bottom of the window. A step opens only when the steps before it are complete. Other products guide a setup with choices the same way, for example the deployment wizard in Flyway Desktop.
+- **Setup is a step-by-step flow.** Three steps with one question or one task each: Databases, Workload identity, Workflow files. A row on top names every step, and Back and Continue stay at the bottom of the window. A step opens only when the steps before it are complete. Other products guide a setup with choices the same way.
 - **Each step shows the result of its decision.** Step 1 shows the deploy order: the picked databases by environment, in the order the rollout deploys them. Step 2 shows what setup reads from the identity: its git provider, the repositories that can sign in, and its role in the project.
 - **The owner answers two questions, and every other value is read.** The git provider comes from the identity, so there are no GitHub and GitLab tabs to choose from. The environments come from the databases. The files arrive complete.
 - **Creating an identity does not leave setup.** Opened from step 2, the dialog offers GitHub Actions and GitLab CI only, closes after Create, and the new identity is picked.
@@ -46,7 +46,7 @@ Notes for review:
 - The self-hosted runner switch is removed. An owner who uses one changes `runs-on` in the repository.
 - No API, proto, store or backend change.
 
-Details are in `docs/design/gitops-setup-page.md`: the decisions, the state tables, the research on how Atlas, Liquibase and Flyway set up a pipeline, and the alternatives considered.
+Details are in `docs/design/gitops-setup-page.md`: the decisions, the state tables, the research on how other schema-change tools set up a pipeline, and the alternatives considered.
 
 ### Screenshots
 
@@ -83,5 +83,5 @@ Step 3, Workflow files. Each file shows its path, a copy button, and its first 1
 ### Not in this PR
 
 - The exact workflow YAML and the action's behavior (BYT-10424).
-- Hiding provider-reserved databases such as Neon's `postgres` (BYT-10254).
+- Hiding provider-reserved databases (BYT-10254).
 - Checking the repository side, a live sign-in status, and setup by coding agents (BYT-10425).
