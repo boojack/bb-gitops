@@ -1,0 +1,320 @@
+diff --git a/frontend/src/components/WorkloadIdentityFlow/TokenSourceStep.tsx b/frontend/src/components/WorkloadIdentityFlow/TokenSourceStep.tsx
+index 2c5d68d..92af524 100644
+--- a/frontend/src/components/WorkloadIdentityFlow/TokenSourceStep.tsx
++++ b/frontend/src/components/WorkloadIdentityFlow/TokenSourceStep.tsx
+@@ -11,6 +11,7 @@ import { TagInput } from "@/components/ui/tag-input";
+ import { cn } from "@/lib/utils";
+ import { WorkloadIdentityConfig_ProviderType } from "@/types/proto-es/v1/workload_identity_service_pb";
+ import { Field, InlineCode, StepHeading, TextAction } from "./StepParts";
++import { isRepositoryProvider } from "./subjectPattern";
+ 
+ export interface TokenSourceErrors {
+   provider?: string;
+@@ -22,6 +23,8 @@ export interface TokenSourceErrors {
+ interface TokenSourceStepProps {
+   readonly providerType?: WorkloadIdentityConfig_ProviderType;
+   readonly providerLocked: boolean;
++  // Offer GitHub Actions and GitLab CI only.
++  readonly gitProvidersOnly?: boolean;
+   readonly onProviderChange: (
+     providerType: WorkloadIdentityConfig_ProviderType
+   ) => void;
+@@ -70,7 +73,10 @@ export function TokenSourceStep(props: TokenSourceStepProps) {
+       title: t("workload-identity.token-source.oidc-title"),
+       subtitle: t("workload-identity.token-source.oidc-subtitle"),
+     },
+-  ];
++  ].filter(
++    (provider) =>
++      !props.gitProvidersOnly || isRepositoryProvider(provider.value)
++  );
+ 
+   return (
+     <div className="flex flex-col gap-y-4">
+@@ -89,7 +95,10 @@ export function TokenSourceStep(props: TokenSourceStepProps) {
+               Number(value) as WorkloadIdentityConfig_ProviderType
+             )
+           }
+-          className="grid grid-cols-1 items-stretch gap-2 sm:grid-cols-3"
++          className={cn(
++            "grid grid-cols-1 items-stretch gap-2",
++            providers.length === 2 ? "sm:grid-cols-2" : "sm:grid-cols-3"
++          )}
+         >
+           {providers.map((provider) => {
+             const selected = providerType === provider.value;
+diff --git a/frontend/src/components/WorkloadIdentityFlow/WorkloadIdentityDialog.test.tsx b/frontend/src/components/WorkloadIdentityFlow/WorkloadIdentityDialog.test.tsx
+index 6b3f8c2..c4653f4 100644
+--- a/frontend/src/components/WorkloadIdentityFlow/WorkloadIdentityDialog.test.tsx
++++ b/frontend/src/components/WorkloadIdentityFlow/WorkloadIdentityDialog.test.tsx
+@@ -119,6 +119,7 @@ const render = async (props: {
+   onClose?: () => void;
+   onCreated?: (wi: WorkloadIdentity) => void;
+   closeOnCreate?: boolean;
++  gitProvidersOnly?: boolean;
+ }) => {
+   container = document.createElement("div");
+   document.body.appendChild(container);
+@@ -481,6 +482,33 @@ describe("WorkloadIdentityDialog", () => {
+     expect(text()).toContain("workload-identity.done.role-not-granted");
+   });
+ 
++  test("offers every token source by default", async () => {
++    await render({});
++    expect(container.querySelectorAll('[role="radio"]')).toHaveLength(3);
++    expect(text()).toContain("workload-identity.token-source.oidc-title");
++  });
++
++  test("offers GitHub Actions and GitLab CI only with gitProvidersOnly", async () => {
++    await render({ gitProvidersOnly: true });
++    expect(container.querySelectorAll('[role="radio"]')).toHaveLength(2);
++    expect(text()).toContain("workload-identity.token-source.github-title");
++    expect(text()).toContain("workload-identity.token-source.gitlab-title");
++    expect(text()).not.toContain("workload-identity.token-source.oidc-title");
++  });
++
++  test("offers every token source when editing, even with gitProvidersOnly", async () => {
++    await render({
++      gitProvidersOnly: true,
++      workloadIdentity: storedIdentity({
++        providerType: WorkloadIdentityConfig_ProviderType.OIDC,
++        subjectPattern: "system:serviceaccount:ci:deployer",
++      }),
++    });
++    const radios = container.querySelectorAll('[role="radio"]');
++    expect(radios).toHaveLength(3);
++    expect(radios[2].getAttribute("aria-checked")).toBe("true");
++  });
++
+   test("blocks an email another identity uses", async () => {
+     vi.useFakeTimers();
+     try {
+diff --git a/frontend/src/components/WorkloadIdentityFlow/WorkloadIdentityDialog.tsx b/frontend/src/components/WorkloadIdentityFlow/WorkloadIdentityDialog.tsx
+index ad59297..e899256 100644
+--- a/frontend/src/components/WorkloadIdentityFlow/WorkloadIdentityDialog.tsx
++++ b/frontend/src/components/WorkloadIdentityFlow/WorkloadIdentityDialog.tsx
+@@ -83,6 +83,10 @@ export interface WorkloadIdentityDialogProps {
+   // shows the new identity itself, such as GitOps setup. A failed role grant
+   // still shows Done, which explains it.
+   readonly closeOnCreate?: boolean;
++  // Offer GitHub Actions and GitLab CI only when creating. For a caller that
++  // can use no other token source, such as GitOps setup. Editing offers every
++  // source, so a stored one is never missing.
++  readonly gitProvidersOnly?: boolean;
+ }
+ 
+ export function WorkloadIdentityDialog(props: WorkloadIdentityDialogProps) {
+@@ -106,6 +110,7 @@ export function WorkloadIdentityDialog(props: WorkloadIdentityDialogProps) {
+           onCreated={props.onCreated}
+           onUpdated={props.onUpdated}
+           closeOnCreate={props.closeOnCreate}
++          gitProvidersOnly={props.gitProvidersOnly}
+         />
+       </DialogContent>
+     </Dialog>
+@@ -168,6 +173,7 @@ function WorkloadIdentityFlow({
+   onCreated,
+   onUpdated,
+   closeOnCreate,
++  gitProvidersOnly,
+ }: Omit<WorkloadIdentityDialogProps, "open">) {
+   const { t } = useTranslation();
+   const getProjectIamPolicy = useAppStore((state) => state.getProjectIamPolicy);
+@@ -642,6 +648,7 @@ function WorkloadIdentityFlow({
+       <TokenSourceStep
+         providerType={providerType}
+         providerLocked={providerLocked}
++        gitProvidersOnly={gitProvidersOnly && !isEditMode}
+         onProviderChange={handleProviderChange}
+         issuerUrl={issuerUrl}
+         onIssuerUrlChange={setIssuerUrl}
+diff --git a/frontend/src/locales/en-US.json b/frontend/src/locales/en-US.json
+index 8691dab..b871098 100644
+--- a/frontend/src/locales/en-US.json
++++ b/frontend/src/locales/en-US.json
+@@ -1372,9 +1372,7 @@
+         "question": "Which workload identity does your workflow sign in as?",
+         "read-from": "Read from this identity",
+         "repositories": "Repositories that can sign in",
+-        "role": "Role in this project",
+-        "unsupported-description": "It signs in through another OIDC provider. To continue, pick or create a workload identity for GitHub Actions or GitLab CI.",
+-        "unsupported-title": "Setup has no workflow files for this identity"
++        "role": "Role in this project"
+       },
+       "no-database": {
+         "description": "GitOps deploys to the databases of this project. Add or transfer a database to this project first.",
+diff --git a/frontend/src/locales/es-ES.json b/frontend/src/locales/es-ES.json
+index 5cf1f90..7be90ab 100644
+--- a/frontend/src/locales/es-ES.json
++++ b/frontend/src/locales/es-ES.json
+@@ -1372,9 +1372,7 @@
+         "question": "¿Con qué identidad de carga de trabajo inicia sesión tu flujo de trabajo?",
+         "read-from": "Leído de esta identidad",
+         "repositories": "Repositorios que pueden iniciar sesión",
+-        "role": "Rol en este proyecto",
+-        "unsupported-description": "Inicia sesión mediante otro proveedor de OIDC. Para continuar, elige o crea una identidad de carga de trabajo para GitHub Actions o GitLab CI.",
+-        "unsupported-title": "La configuración no tiene archivos de flujo de trabajo para esta identidad"
++        "role": "Rol en este proyecto"
+       },
+       "no-database": {
+         "description": "GitOps despliega en las bases de datos de este proyecto. Primero agrega o transfiere una base de datos a este proyecto.",
+diff --git a/frontend/src/locales/ja-JP.json b/frontend/src/locales/ja-JP.json
+index 80f8747..d6049bc 100644
+--- a/frontend/src/locales/ja-JP.json
++++ b/frontend/src/locales/ja-JP.json
+@@ -1372,9 +1372,7 @@
+         "question": "ワークフローはどのワークロード ID でサインインしますか？",
+         "read-from": "この ID から読み取った情報",
+         "repositories": "サインインできるリポジトリ",
+-        "role": "このプロジェクトでのロール",
+-        "unsupported-description": "この ID は別の OIDC プロバイダー経由でサインインします。続行するには、GitHub Actions または GitLab CI 用のワークロード ID を選択または作成してください。",
+-        "unsupported-title": "セットアップにはこの ID 用のワークフローファイルがありません"
++        "role": "このプロジェクトでのロール"
+       },
+       "no-database": {
+         "description": "GitOps はこのプロジェクトのデータベースにデプロイします。まずデータベースをこのプロジェクトに追加または移動してください。",
+diff --git a/frontend/src/locales/vi-VN.json b/frontend/src/locales/vi-VN.json
+index 0bbd11a..5746f5b 100644
+--- a/frontend/src/locales/vi-VN.json
++++ b/frontend/src/locales/vi-VN.json
+@@ -1372,9 +1372,7 @@
+         "question": "Workflow của bạn đăng nhập bằng workload identity nào?",
+         "read-from": "Đọc từ identity này",
+         "repositories": "Repository có thể đăng nhập",
+-        "role": "Vai trò trong dự án này",
+-        "unsupported-description": "Identity này đăng nhập qua một nhà cung cấp OIDC khác. Để tiếp tục, hãy chọn hoặc tạo workload identity cho GitHub Actions hoặc GitLab CI.",
+-        "unsupported-title": "Phần thiết lập không có tệp workflow cho identity này"
++        "role": "Vai trò trong dự án này"
+       },
+       "no-database": {
+         "description": "GitOps triển khai lên các cơ sở dữ liệu của dự án này. Hãy thêm hoặc chuyển một cơ sở dữ liệu vào dự án này trước.",
+diff --git a/frontend/src/locales/zh-CN.json b/frontend/src/locales/zh-CN.json
+index 7e7d4cb..1cb677f 100644
+--- a/frontend/src/locales/zh-CN.json
++++ b/frontend/src/locales/zh-CN.json
+@@ -1372,9 +1372,7 @@
+         "question": "你的工作流以哪个工作负载身份登录？",
+         "read-from": "从此身份读取",
+         "repositories": "可登录的仓库",
+-        "role": "在此项目中的角色",
+-        "unsupported-description": "此身份通过其他 OIDC 提供商登录。如需继续，请选择或创建用于 GitHub Actions 或 GitLab CI 的工作负载身份。",
+-        "unsupported-title": "设置中没有适用于此身份的工作流文件"
++        "role": "在此项目中的角色"
+       },
+       "no-database": {
+         "description": "GitOps 部署到此项目的数据库。请先向此项目添加或转移一个数据库。",
+diff --git a/frontend/src/routes/project/ProjectGitOpsPage.test.tsx b/frontend/src/routes/project/ProjectGitOpsPage.test.tsx
+index 283fe58..4eb36b4 100644
+--- a/frontend/src/routes/project/ProjectGitOpsPage.test.tsx
++++ b/frontend/src/routes/project/ProjectGitOpsPage.test.tsx
+@@ -291,19 +291,18 @@ vi.mock("./WorkloadIdentitySelect", () => ({
+   ),
+ }));
+ 
+-// The identity the Create dialog hands back.
+-let createdIdentity = NEW_CI;
+-
+-// Create hands back createdIdentity, as the real dialog does with closeOnCreate.
++// Create hands back NEW_CI, as the real dialog does with closeOnCreate.
+ vi.mock("@/components/WorkloadIdentityFlow/WorkloadIdentityDialog", () => ({
+   WorkloadIdentityDialog: ({
+     open,
+     closeOnCreate,
++    gitProvidersOnly,
+     onCreated,
+     onClose,
+   }: {
+     open: boolean;
+     closeOnCreate?: boolean;
++    gitProvidersOnly?: boolean;
+     onCreated: (wi: WorkloadIdentity) => void;
+     onClose: () => void;
+   }) =>
+@@ -311,8 +310,9 @@ vi.mock("@/components/WorkloadIdentityFlow/WorkloadIdentityDialog", () => ({
+       <button
+         type="button"
+         data-close-on-create={String(closeOnCreate)}
++        data-git-providers-only={String(gitProvidersOnly)}
+         onClick={() => {
+-          const created = createdIdentity;
++          const created = NEW_CI;
+           mocks.state.identities = [...mocks.state.identities, created];
+           mocks.state.identitiesByName[created.name] = created;
+           mocks.state.members.push(`workloadIdentity:${created.email}`);
+@@ -425,7 +425,6 @@ const openStep3 = async (identity: WorkloadIdentity) => {
+ };
+ 
+ beforeEach(() => {
+-  createdIdentity = NEW_CI;
+   mocks.canCreate = true;
+   mocks.serverState.externalUrl = "https://bytebase.example.com";
+   mocks.serverState.needConfigureExternalUrl = false;
+@@ -513,6 +512,8 @@ describe("ProjectGitOpsPage", () => {
+     await click(button("gitops.setup.identity.create"));
+     const create = button("dialog-create");
+     expect(create?.getAttribute("data-close-on-create")).toBe("true");
++    // Setup has workflow files for GitHub Actions and GitLab CI only.
++    expect(create?.getAttribute("data-git-providers-only")).toBe("true");
+     await click(create);
+ 
+     expect(button("dialog-create")).toBeUndefined();
+@@ -620,27 +621,6 @@ describe("ProjectGitOpsPage", () => {
+     expect(portal("identity-select")).toBe("true");
+   });
+ 
+-  test("an identity for another OIDC provider that Create returns shows the reason", async () => {
+-    createdIdentity = OTHER_CI;
+-    setProject({
+-      groups: 1,
+-      databases: [databaseOf("shop", "environments/prod")],
+-    });
+-    await render();
+-    await click(continueButton());
+-    await click(button("gitops.setup.identity.create"));
+-    await click(button("dialog-create"));
+-
+-    expect(currentStep()).toBe("gitops.setup.steps.workload-identity");
+-    expect(container.textContent).toContain(
+-      "gitops.setup.identity.unsupported-title"
+-    );
+-    expect(container.textContent).not.toContain(
+-      "gitops.setup.identity.no-role-title"
+-    );
+-    expect(continueButton()?.disabled).toBe(true);
+-  });
+-
+   test("the scope line shows on every step", async () => {
+     setProject({
+       groups: 1,
+diff --git a/frontend/src/routes/project/ProjectGitOpsPage.tsx b/frontend/src/routes/project/ProjectGitOpsPage.tsx
+index f3928ad..c8d83e1 100644
+--- a/frontend/src/routes/project/ProjectGitOpsPage.tsx
++++ b/frontend/src/routes/project/ProjectGitOpsPage.tsx
+@@ -361,6 +361,7 @@ export function ProjectGitOpsPage({ projectId }: { projectId: string }) {
+         open={dialogOpen}
+         project={projectName}
+         closeOnCreate
++        gitProvidersOnly
+         onClose={() => setDialogOpen(false)}
+         onCreated={handleCreated}
+       />
+diff --git a/frontend/src/routes/project/gitops-setup/WorkloadIdentityStep.tsx b/frontend/src/routes/project/gitops-setup/WorkloadIdentityStep.tsx
+index facfd6a..340d180 100644
+--- a/frontend/src/routes/project/gitops-setup/WorkloadIdentityStep.tsx
++++ b/frontend/src/routes/project/gitops-setup/WorkloadIdentityStep.tsx
+@@ -126,15 +126,6 @@ export function WorkloadIdentityStep({
+         </section>
+       )}
+ 
+-      {/* The Create dialog can return an identity for another OIDC provider. */}
+-      {identity && !provider && (
+-        <Alert
+-          variant="warning"
+-          title={t("gitops.setup.identity.unsupported-title")}
+-          description={t("gitops.setup.identity.unsupported-description")}
+-        />
+-      )}
+-
+       {identity && provider && roles?.length === 0 && (
+         <Alert
+           variant="warning"

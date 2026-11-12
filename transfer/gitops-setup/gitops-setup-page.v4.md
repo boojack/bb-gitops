@@ -188,17 +188,15 @@ Resolves part 2.
 
 - *The owner decides:* one workload identity of this project. If the project has only one, it is
   already picked. If it has none, the step shows only a Create workload identity button, which opens
-  the dialog of [#21942]. Opened from setup, the dialog closes after Create and the new identity
-  comes back picked (D10).
+  the dialog of [#21942]. Opened from setup, the dialog offers GitHub Actions and GitLab CI only,
+  closes after Create, and the new identity comes back picked (D10).
 - *Setup shows:* what it reads from the picked identity, in a read-only box: Git provider,
   Repositories that can sign in (one repository, or every repository of an owner), and Role in this
   project.
 - *Setup checks,* shown only when one fails, as a task with a link:
   - The git provider is GitHub Actions or GitLab CI. An identity for another OIDC provider is listed
-    but cannot be picked, because setup has no files for it. The Create dialog can still return one,
-    because the dialog is the same everywhere. That identity is shown picked with a warning: setup
-    has no workflow files for it, and the owner picks or creates one for GitHub Actions or GitLab
-    CI. Continue stays disabled.
+    but cannot be picked, because setup has no files for it. The Create dialog cannot return one,
+    because opened from setup it does not offer Other OIDC (D10).
   - The identity has a role that allows GitOps in this project, such as GitOps Service Agent. An
     identity with no role cannot review or deploy, so Continue is disabled and a warning links to
     the Members page.
@@ -275,10 +273,16 @@ shows the files in full with a marked placeholder in place of the URL. Its copy 
 disabled, with the reason beside them, so a file that cannot reach Bytebase is not committed by
 accident.
 
-**D10 · Opened from setup, the workload identity dialog closes after Create.** Its last step shows
-the email and a test workflow file. Setup already shows the identity, and step 3 gives the real
-files, so a test file shown first would give the owner two different files to add. Opened anywhere
-else, the dialog keeps its last step.
+**D10 · Opened from setup, the workload identity dialog offers only what setup can use.** Two things
+differ, and both are opt-in. Opened anywhere else, the dialog is unchanged: it offers all three
+token sources and keeps its last step.
+
+- *It offers GitHub Actions and GitLab CI, not Other OIDC.* Setup has workflow files for those two
+  only (D11). An identity for another OIDC provider could not be used in step 3, so the owner would
+  create it and then be told to create another.
+- *It closes after Create.* Its last step shows the email and a test workflow file. Setup already
+  shows the identity, and step 3 gives the real files, so a test file shown first would give the
+  owner two different files to add.
 
 **D11 · Workload identity only, with GitHub Actions and GitLab CI only, and the page says so.**
 Setup offers no service account and no other platform. The git provider is not asked: the owner's
@@ -309,7 +313,6 @@ one line.
 | One, for GitHub Actions or GitLab CI | That identity picked, with the read-only box |
 | Several | A picker, nothing picked, and a Create workload identity button beside it |
 | One for another OIDC provider | Listed, cannot be picked, with the reason |
-| Created from setup for another OIDC provider | That identity picked, a warning with the reason and what to pick instead, Continue disabled |
 | Picked identity has no role | The read-only box, a warning with a link to Members, Continue disabled |
 
 | Picked identity | Step 3 shows |
@@ -381,6 +384,8 @@ one line.
 - **A git provider step before Databases.** Rejected (D11). The workload identity already records
   the provider, so the step would ask the same fact twice and add a case where the two disagree. The
   scope line tells the owner whether setup can serve their repository without a step.
+- **Offering Other OIDC in the Create dialog and warning in step 2.** Rejected (D10). The owner
+  would finish the dialog and only then learn that setup cannot use the identity.
 - **Blocking every step until the External URL is set.** Rejected (D9). The owner often cannot set
   it, and would see nothing of the setup while waiting for an admin.
 - **Deploy order as counts only, as plain names with a "Show all" link, with a "View all" action in
@@ -398,7 +403,7 @@ Expected files. The list is refined when implementation starts.
 | `frontend/src/routes/project/gitops-setup/DeployOrder.tsx` and its test | New: the deploy order list, the "+N more" list and the no-environment warning (D3). |
 | `frontend/src/routes/project/gitopsWorkflowYaml.ts` and its test | Takes the picked targets, their environments, the identity and the folder, and returns the files for the identity's git provider (D5, D6). The exact YAML is BYT-10424. |
 | `frontend/src/routes/project/WorkloadIdentitySelect.tsx` | Lists every identity of the project and disables those for another OIDC provider (D4). |
-| `frontend/src/components/WorkloadIdentityFlow/WorkloadIdentityDialog.tsx` and its test | An opt-in prop to close after Create and return the new identity (D10). |
+| `frontend/src/components/WorkloadIdentityFlow/{WorkloadIdentityDialog,TokenSourceStep}.tsx` and the dialog's test | Two opt-in props: the token sources to offer, and close after Create and return the new identity (D10). |
 | `frontend/src/components/ui/step-indicator.tsx` | Reused as it is after [#21942]. |
 | `frontend/src/components/ui/sticky-action-footer.tsx` | Reused as it is. |
 | `frontend/src/components/DatabaseSelect.tsx`, `DatabaseTargetDisplay.tsx` | Reused as they are. |
@@ -412,12 +417,15 @@ Tests:
   project's order. GitHub gives two files and GitLab one. No secret is referenced.
 - `DeployOrder.test.tsx`: sections follow the environment order. Three chips, then "+N more". The
   total shows above three databases. The warning counts databases with no environment.
+- `WorkloadIdentityDialog.test.tsx`: limited to GitHub Actions and GitLab CI, the dialog shows two
+  token sources and no Other OIDC. With no limit it shows all three. Editing an identity always
+  shows all three.
 - `ProjectGitOpsPage.test.tsx`:
   - A project with one database and no identity opens on the Databases tab with the database picked.
   - Continue is disabled with nothing picked, and with an identity that has no role.
   - The scope line shows on every step.
-  - An identity for another OIDC provider cannot be picked. One that the Create dialog returns shows
-    the warning, and Continue is disabled.
+  - An identity for another OIDC provider cannot be picked.
+  - The Create dialog opens with GitHub Actions and GitLab CI only.
   - Creating an identity from step 2 returns to step 2 with it picked.
   - The repository link shows only when the identity names a repository.
   - Editing the folder changes the paths in the files and in the developers' line.
