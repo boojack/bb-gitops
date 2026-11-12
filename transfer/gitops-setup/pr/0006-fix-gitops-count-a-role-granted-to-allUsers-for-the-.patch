@@ -1,0 +1,205 @@
+From 79917896fea6d85bc38e5a52cf8a0c03c2d38c82 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Thu, 12 Nov 2026 04:02:20 +0000
+Subject: [PATCH] fix(gitops): count a role granted to allUsers for the picked
+ identity (BYT-10423)
+
+Step 2 of the GitOps setup reported "no role" and disabled Continue for a
+workload identity whose role comes from an allUsers binding, although the
+server authorizes it. The role check now counts a binding that names the
+identity or allUsers, as the server's permission check does: allUsers in the
+project always, allUsers in the workspace except on Bytebase Cloud.
+---
+ docs/design/gitops-setup-page.md              |  6 +-
+ .../routes/project/ProjectGitOpsPage.test.tsx | 59 ++++++++++++++++++-
+ .../routes/project/gitops-setup/identity.ts   | 36 +++++++----
+ 3 files changed, 88 insertions(+), 13 deletions(-)
+
+diff --git a/docs/design/gitops-setup-page.md b/docs/design/gitops-setup-page.md
+index e987e8a..8fd0901 100644
+--- a/docs/design/gitops-setup-page.md
++++ b/docs/design/gitops-setup-page.md
+@@ -288,7 +288,9 @@ Resolves part 2.
+     because opened from setup it does not offer Other OIDC (D10).
+   - The identity has a role that allows GitOps in this project, such as GitOps Service Agent. An
+     identity with no role cannot review or deploy, so Continue is disabled and a warning links to
+-    the Members page.
++    the Members page. A role granted to `allUsers` counts, as in the server's permission check
++    (`backend/component/iam/manager.go`): always in the project, and in the workspace except on
++    Bytebase Cloud.
+ - *Goes into the files:* the identity's email and its git provider.
+ - *Not asked:* git provider, owner, repository, owner ID, email, role, issuer and audience. The
+   identity already holds them.
+@@ -600,6 +602,8 @@ Tests:
+ - `ProjectGitOpsPage.test.tsx`:
+   - A project with one database and no identity opens on the Databases tab with the database picked.
+   - Continue is disabled with nothing picked, and with an identity that has no role.
++  - A role granted to `allUsers` counts for the identity: in the project always, in the workspace
++    except on Bytebase Cloud.
+   - The scope line shows on every step.
+   - An identity for another OIDC provider cannot be picked.
+   - The Create dialog opens with GitHub Actions and GitLab CI only.
+diff --git a/frontend/src/routes/project/ProjectGitOpsPage.test.tsx b/frontend/src/routes/project/ProjectGitOpsPage.test.tsx
+index f192691..741ca7b 100644
+--- a/frontend/src/routes/project/ProjectGitOpsPage.test.tsx
++++ b/frontend/src/routes/project/ProjectGitOpsPage.test.tsx
+@@ -75,6 +75,8 @@ const mocks = vi.hoisted(() => {
+     identitiesByName: {} as Record<string, WorkloadIdentity>,
+     // Members that hold a role in the project.
+     members: [] as string[],
++    // Bytebase Cloud.
++    saas: false,
+   };
+   const store = {
+     fetchDBGroupListByProjectName: vi.fn(async () => state.groups),
+@@ -90,7 +92,8 @@ const mocks = vi.hoisted(() => {
+     fetchWorkloadIdentity: vi.fn(async () => undefined),
+     getWorkloadIdentity: (name: string) => state.identitiesByName[name],
+     projectPoliciesByName: {} as Record<string, unknown>,
+-    workspacePolicy: undefined,
++    workspacePolicy: undefined as unknown,
++    isSaaSMode: () => state.saas,
+   };
+   const useAppStore = vi.fn((selector: (s: typeof store) => unknown) =>
+     selector(store)
+@@ -349,6 +352,17 @@ const setPolicy = () => {
+   };
+ };
+ 
++// A policy whose one binding grants the GitOps role to every account.
++const allUsersPolicy = () =>
++  create(IamPolicySchema, {
++    bindings: [
++      create(BindingSchema, {
++        role: "roles/gitopsServiceAgent",
++        members: ["allUsers"],
++      }),
++    ],
++  });
++
+ const setProject = ({
+   groups = 0,
+   databases = [],
+@@ -438,6 +452,8 @@ beforeEach(() => {
+   mocks.canCreate = true;
+   mocks.serverState.externalUrl = "https://bytebase.example.com";
+   mocks.serverState.needConfigureExternalUrl = false;
++  mocks.store.workspacePolicy = undefined;
++  mocks.state.saas = false;
+ });
+ 
+ afterEach(() => {
+@@ -489,6 +505,47 @@ describe("ProjectGitOpsPage", () => {
+     expect(continueButton()?.disabled).toBe(true);
+   });
+ 
++  test("a role granted to allUsers in the project counts for the identity", async () => {
++    setProject({
++      groups: 1,
++      databases: [databaseOf("shop", "environments/prod")],
++      identities: [DEPLOY_CI],
++    });
++    mocks.store.projectPoliciesByName = {
++      "projects/shop": allUsersPolicy(),
++    };
++    await render();
++    await click(continueButton());
++
++    expect(container.textContent).toContain("roles/gitopsServiceAgent");
++    expect(container.textContent).not.toContain(
++      "gitops.setup.identity.no-role-title"
++    );
++    expect(continueButton()?.disabled).toBe(false);
++  });
++
++  test("a role granted to allUsers in the workspace counts, except on Bytebase Cloud", async () => {
++    setProject({
++      groups: 1,
++      databases: [databaseOf("shop", "environments/prod")],
++      identities: [DEPLOY_CI],
++    });
++    mocks.store.workspacePolicy = allUsersPolicy();
++    await render();
++    await click(continueButton());
++    expect(continueButton()?.disabled).toBe(false);
++
++    act(() => root.unmount());
++    container.remove();
++    mocks.state.saas = true;
++    await render();
++    await click(continueButton());
++    expect(container.textContent).toContain(
++      "gitops.setup.identity.no-role-title"
++    );
++    expect(continueButton()?.disabled).toBe(true);
++  });
++
+   test("an identity for another OIDC provider is listed but cannot be picked", async () => {
+     setProject({
+       groups: 1,
+diff --git a/frontend/src/routes/project/gitops-setup/identity.ts b/frontend/src/routes/project/gitops-setup/identity.ts
+index 5b04d47..d0b71ec 100644
+--- a/frontend/src/routes/project/gitops-setup/identity.ts
++++ b/frontend/src/routes/project/gitops-setup/identity.ts
+@@ -1,6 +1,10 @@
+ import { useMemo } from "react";
+ import { useAppStore } from "@/stores/app";
+-import { getWorkloadIdentityNameInBinding } from "@/types";
++import {
++  ALL_USERS_USER_EMAIL,
++  getWorkloadIdentityNameInBinding,
++} from "@/types";
++import type { Binding } from "@/types/proto-es/v1/iam_policy_pb";
+ import {
+   type WorkloadIdentity,
+   WorkloadIdentityConfig_ProviderType,
+@@ -52,8 +56,11 @@ export function repositoryUrlOf(identity: WorkloadIdentity): string {
+ }
+ 
+ // The roles an identity holds in the project, from the project's bindings and
+-// the workspace's. Undefined while the project policy cannot be read, so the
+-// caller skips the role check instead of reporting a missing role.
++// the workspace's. A binding counts when it names the identity or `allUsers`,
++// as the server's permission check does: `allUsers` in a project covers every
++// account, and `allUsers` in the workspace is skipped on Bytebase Cloud.
++// Undefined while the project policy cannot be read, so the caller skips the
++// role check instead of reporting a missing role.
+ export function useIdentityRoles(
+   projectName: string,
+   identity: WorkloadIdentity | undefined
+@@ -62,17 +69,24 @@ export function useIdentityRoles(
+     (state) => state.projectPoliciesByName[projectName]
+   );
+   const workspacePolicy = useAppStore((state) => state.workspacePolicy);
++  const isSaaSMode = useAppStore((state) => state.isSaaSMode());
+   return useMemo(() => {
+     if (!identity || !projectPolicy) return undefined;
+     const member = getWorkloadIdentityNameInBinding(identity.email);
+     const roles = new Set<string>();
+-    for (const binding of [
+-      ...projectPolicy.bindings,
+-      ...(workspacePolicy?.bindings ?? []),
+-    ]) {
+-      if (isBindingPolicyExpired(binding)) continue;
+-      if (binding.members.includes(member)) roles.add(binding.role);
+-    }
++    const collect = (bindings: Binding[], allUsersCounts: boolean) => {
++      for (const binding of bindings) {
++        if (isBindingPolicyExpired(binding)) continue;
++        if (
++          binding.members.includes(member) ||
++          (allUsersCounts && binding.members.includes(ALL_USERS_USER_EMAIL))
++        ) {
++          roles.add(binding.role);
++        }
++      }
++    };
++    collect(projectPolicy.bindings, true);
++    collect(workspacePolicy?.bindings ?? [], !isSaaSMode);
+     return [...roles];
+-  }, [identity, projectPolicy, workspacePolicy]);
++  }, [identity, projectPolicy, workspacePolicy, isSaaSMode]);
+ }
+-- 
+2.43.0
+

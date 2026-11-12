@@ -16,4 +16,5 @@ ff94b8e4db00ba018d98cae54bd7f5721506d64d213b881bb8cd61157c890dfa  0012-show-git-
 bc53c522380d93612eb2002e02aaeb4c27fe229a49087e66273af73c69bb1a1a  pr/0003-feat-gitops-show-the-deploy-order-of-the-picked-data.patch
 66e6edaaf075134bed0ba30646bbe89d5d589d832da581cff0cb3960504bba78  pr/0004-feat-gitops-options-for-the-setup-steps-on-shared-pi.patch
 50d247af82a4a0b2aeb01ff11cd44a881d39008d7034ffb8144f58ca4526b276  pr/0005-feat-gitops-turn-the-GitOps-page-into-a-three-step-s.patch
+6c08c29b62d0ed32f27ceda9a2211f65d545db928b48d9c3155744da9e3e91da  pr/0006-fix-gitops-count-a-role-granted-to-allUsers-for-the-.patch
 0574832d91b2ef6860b786a3b409cc8d9597cca8781cb3be912787e9a5400d2e  pr/pr-body.md
