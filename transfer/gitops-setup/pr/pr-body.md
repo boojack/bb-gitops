@@ -11,38 +11,30 @@ To get there, a pipeline in the repository must act in Bytebase on the right dat
 
 ### What changes
 
-Two improvements and one fix.
+The GitOps page becomes the setup itself. Nothing is saved; the files in the repository are the setup. The change improves how the owner goes through setup, and fixes cases where setup produced files that did not work.
 
 **Improvements**
 
-1. **Setup is a step-by-step flow.** The GitOps page becomes three steps, each with one question or one task: Databases, Workload identity, Workflow files. A row on top names every step, and Back and Continue stay at the bottom of the window. Other products guide a setup with choices the same way, for example the deployment wizard in Flyway Desktop. The owner makes one decision at a time and sees its result before the next one. Nothing is saved; the files in the repository are the setup.
-2. **Step 1 shows the deploy order before any file is written.** The picked database group or databases are listed by environment, in the order the rollout deploys them. A picked group that matches databases with no environment shows a warning, because the rollout skips those databases.
+- **Setup is a step-by-step flow.** Three steps with one question or one task each: Databases, Workload identity, Workflow files. A row on top names every step, and Back and Continue stay at the bottom of the window. A step opens only when the steps before it are complete. Other products guide a setup with choices the same way, for example the deployment wizard in Flyway Desktop.
+- **Each step shows the result of its decision.** Step 1 shows the deploy order: the picked databases by environment, in the order the rollout deploys them. Step 2 shows what setup reads from the identity: its git provider, the repositories that can sign in, and its role in the project.
+- **The owner answers two questions, and every other value is read.** The git provider comes from the identity, so there are no GitHub and GitLab tabs to choose from. The environments come from the databases. The files arrive complete.
+- **Creating an identity does not leave setup.** Opened from step 2, the dialog offers GitHub Actions and GitLab CI only, closes after Create, and the new identity is picked.
+- **The files are shorter and easier to copy.** They have no sign-in script: `bytebase-action` signs in as `BYTEBASE_WORKLOAD_IDENTITY` (#21974), which removes 18 lines from every GitHub job and 10 from every GitLab job. Each file shows its path and a copy button. A file longer than 12 lines shows its first 12 lines with "Show all N lines"; Copy always takes the whole file.
+- **The migration folder can be changed.** It is `migrations/` by default, and an edit updates the files.
+- **The page says what it covers and what comes next.** A line on every step says setup writes files for GitHub Actions and GitLab CI. Step 3 ends with what happens once the files are on the default branch.
 
-**Fix**
+**Fixes**
 
-3. **The generated deploy jobs follow the project's environments.** The generator wrote two fixed deploy jobs, `deploy-to-test` and `deploy-to-prod`, with `--target-stage=environments/test` and `environments/prod`, whatever environments the databases were in. In a project with other environment IDs, the deploy command does not find the stage, logs it and ends without an error, so the job passes and deploys nothing. An environment other than `test` or `prod` got no deploy job. The generator now writes one deploy job per environment of the picked databases, in the workspace's environment order, and each job needs the one before it. The action itself is not changed and still ends without an error for an unknown stage (BYT-10426).
+| What went wrong | Now |
+|---|---|
+| The deploy jobs were fixed: `deploy-to-test` and `deploy-to-prod`, with `--target-stage=environments/test` and `environments/prod`. In a project with other environment IDs, the deploy command does not find the stage and ends without an error, so the job passes and deploys nothing. Any other environment had no deploy job. | One deploy job per environment of the picked databases, in the workspace's environment order. Each job needs the one before it. |
+| The files held one branch name, read from the identity's rule, or `main` when the rule names no branch. In a repository with another default branch, the workflows did not run. | The jobs compare with the repository's default branch at run time. |
+| A database with no environment could be picked. The rollout skips it without an error. | It cannot be picked. A group that matches some shows a warning with their count. |
+| An identity with no role in the project could be picked. Bytebase refuses its review and its deploy. | A warning with a link to Members. Continue is disabled. |
+| An identity for another OIDC provider could be picked. The GitHub or GitLab files were still shown, under a warning. | It cannot be picked, and the picker says why. |
+| The files were shown and could be copied before a database or an identity was picked, with `{...}` placeholders in them. With no External URL, they held an empty URL. | Step 3 opens only after steps 1 and 2. With no External URL, the files show `{EXTERNAL_URL}` marked, and copy is off. |
 
-The steps:
-
-| Step | Question | What the owner does |
-|---|---|---|
-| 1. Databases | Which databases should GitOps deploy to? | Picks a database group (recommended) or databases. Sees the deploy order by environment. |
-| 2. Workload identity | Which workload identity does your workflow sign in as? | Picks or creates one. Sees its git provider with its logo, the repositories that can sign in, and its role. |
-| 3. Workflow files | Add the files to your repository | Copies the files, which already hold the databases, environments, identity and migration folder. Each file shows its path and a copy button. A file longer than 12 lines shows its first 12 lines, with "Show all N lines" under them. Copy always takes the whole file. The repository link carries the git provider's logo. |
-
-Other changes, before and after:
-
-| | Before | After |
-|---|---|---|
-| Deploy branch | Read from the identity, `main` by default | The repository's default branch, read at run time |
-| Migration folder | Fixed `migrations/` | `migrations/` by default, editable |
-| Provider | GitHub/GitLab tabs, with a mismatch warning | The identity's git provider decides; an identity for another OIDC provider cannot be picked. A line on every step says setup writes files for GitHub Actions and GitLab CI |
-| Sign-in in the files | An 18-line token exchange script in every GitHub job, 10 lines in every GitLab job | No sign-in step. `bytebase-action` signs in as `BYTEBASE_WORKLOAD_IDENTITY` (#21974) |
-| Databases with no environment | Accepted, then skipped by the rollout | Cannot be picked one by one; a group that matches some shows a warning |
-| Identity with no role | Accepted | Warning with a link to Members; Continue is disabled |
-| Creating an identity | The dialog ends on its Done step | Opened from setup, the dialog offers GitHub Actions and GitLab CI only, closes after Create, and the identity is picked |
-| External URL not set | A failed check in the list; files hold an empty URL | Warning on every step; files show `{EXTERNAL_URL}` marked; copy is off |
-| Self-hosted runner switch | Present | Removed |
+The action is not changed. It still ends without an error for a stage that is not in the rollout (BYT-10426).
 
 Notes for review:
 
@@ -51,6 +43,7 @@ Notes for review:
 - The one-off test workflow in the workload identity dialog is unchanged. It runs without the action image and keeps its own exchange.
 - The pickers in the steps render their menus in the overlay layer, so the sticky footer does not cover them.
 - Workflow files that are already in a repository keep working. The server still accepts the token exchange and `--access-token`.
+- The self-hosted runner switch is removed. An owner who uses one changes `runs-on` in the repository.
 - No API, proto, store or backend change.
 
 Details are in `docs/design/gitops-setup-page.md`: the decisions, the state tables, the research on how Atlas, Liquibase and Flyway set up a pipeline, and the alternatives considered.
