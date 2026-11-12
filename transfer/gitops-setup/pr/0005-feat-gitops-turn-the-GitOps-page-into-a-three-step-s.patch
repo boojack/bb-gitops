@@ -1,6 +1,6 @@
-From ac31514376beef21fbba5e987432c77556ad12e1 Mon Sep 17 00:00:00 2001
+From eee034043946af803fe9c0dc213086c3967b45fe Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
-Date: Thu, 12 Nov 2026 03:10:48 +0000
+Date: Thu, 12 Nov 2026 03:22:02 +0000
 Subject: [PATCH 5/5] feat(gitops): turn the GitOps page into a three-step
  setup (BYT-10423)
 

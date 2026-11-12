@@ -1,6 +1,6 @@
-From 4f082ffb82af9b21589f21a88af77f3e519d2749 Mon Sep 17 00:00:00 2001
+From 8f8a1207f95bfaf8b959eb0cb8ca4c662db7de97 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
-Date: Thu, 12 Nov 2026 03:10:48 +0000
+Date: Thu, 12 Nov 2026 03:22:01 +0000
 Subject: [PATCH 4/5] feat(gitops): options for the setup steps on shared
  pickers (BYT-10423)
 

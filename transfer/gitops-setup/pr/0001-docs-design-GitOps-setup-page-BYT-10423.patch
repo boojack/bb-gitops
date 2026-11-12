@@ -1,19 +1,19 @@
-From 496b07328b09a0e6d402080ae6102f9d1be59d85 Mon Sep 17 00:00:00 2001
+From e024f5cdcd50ee0e52d1014343f485444fe863d4 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
-Date: Thu, 12 Nov 2026 03:10:47 +0000
+Date: Thu, 12 Nov 2026 03:22:00 +0000
 Subject: [PATCH 1/5] docs(design): GitOps setup page (BYT-10423)
 
 ---
- docs/design/gitops-setup-page.md | 529 +++++++++++++++++++++++++++++++
- 1 file changed, 529 insertions(+)
+ docs/design/gitops-setup-page.md | 656 +++++++++++++++++++++++++++++++
+ 1 file changed, 656 insertions(+)
  create mode 100644 docs/design/gitops-setup-page.md
 
 diff --git a/docs/design/gitops-setup-page.md b/docs/design/gitops-setup-page.md
 new file mode 100644
-index 0000000..ff88f05
+index 0000000..e987e8a
 --- /dev/null
 +++ b/docs/design/gitops-setup-page.md
-@@ -0,0 +1,529 @@
+@@ -0,0 +1,656 @@
 +# GitOps setup page
 +
 +Status: implemented in this PR · 2026-11-12 · [BYT-10423](https://linear.app/bytebase/issue/BYT-10423) · builds on the workload identity dialog, [#21942], and on sign-in inside the action, [#21974]
@@ -81,23 +81,111 @@ index 0000000..ff88f05
 +what it leaves out. Nothing is taken because another product does it. A pattern is taken only where
 +it serves the owner's problem above.
 +
-+### R1 · How other schema-change tools set up a pipeline
++### R1 · How Atlas, Liquibase and Flyway set up a pipeline
 +
-+| Product | Setup UI | What the user does | Who adds the file |
-+|---|---|---|---|
-+| Flyway Desktop (Enterprise) | In-product wizard "Automated Deployment" with four steps: Workflow, Environments, Review, Checklist | Picks the platform once (GitHub Actions, Bash or PowerShell), then builds a row of environments | The wizard saves `deployment.yml` locally. The user commits it |
-+| Atlas | Terminal prompts from `gh atlas init-action` ([ariga/gh-atlas](https://github.com/ariga/gh-atlas) at `e861b64`), plus docs | Answers the prompts | The command sets a repository secret and opens a pull request |
-+| Liquibase | Docs only | Follows nine steps in the git provider's own screens | The user |
++Atlas, Liquibase and Flyway each have a first-party path from a migration folder to a CI/CD
++pipeline. For each one, the setup path was read in the vendor's docs and, where the code is public,
++in its source at a pinned commit, on October 30 and on November 10 and 11, 2026. Flyway Desktop's
++wizard was read from Redgate's tutorial and its two screenshots. No pipeline was run end to end. Two
++things were not read: the Flyway Pipelines page, which did not load, and the signed-in Atlas Cloud
++app, which no public page shows.
 +
-+None of the three signs in with the pipeline's own OIDC token.
++**Atlas.** Setup is a terminal command or a docs guide. No public page shows a setup screen in Atlas
++Cloud.
 +
-+- **Taken:** the file is generated from the user's choices (Flyway, Atlas), and the platform is
-+  asked once (Flyway). Here the platform is not asked at all, because the workload identity already
-+  holds it.
-+- **Left out:** a Review step and a Checklist step (Flyway). Each step here already shows the result
-+  of its decision, and there is no secret to add, so there is nothing to review or tick off. Opening
-+  the pull request for the user (Atlas) is left out because Bytebase has no write access to the
-+  repository.
++- *The command.* `gh atlas init-action` is an extension of the GitHub CLI ([ariga/gh-atlas],
++  `main.go` and `prompt.go` at `e861b64`). It asks for the Atlas Cloud token, the Atlas Cloud
++  repository, whether a config file is used, the migration directory, the database driver, and
++  whether one schema or several are managed. It skips a question when it can find the answer itself.
++  Then it stores the token as a repository secret, commits `.github/workflows/ci-atlas.yml` on a new
++  branch, and opens a pull request. It can do this because it runs with the user's own GitHub login,
++  which needs the `workflow` permission. It supports GitHub only.
++- *The guide.* [Setup CI/CD for versioned migrations][atlas-setup] starts with a choice of six CI
++  platforms. On the [GitHub Actions page][atlas-github] the user signs in with the CLI, creates a
++  bot token, adds two repository secrets (`ATLAS_CLOUD_TOKEN` and `DB_URL`), pushes the migration
++  directory, and creates the workflow file from the YAML on the page. There is one YAML per database
++  type.
++- *Sign-in.* The pipeline holds a long-lived token and connects to the database itself, with the
++  address from a secret ([`setup-atlas`][setup-atlas] at `4060c70`).
++
++**Liquibase.** Setup is docs only. [Set up your Liquibase GitHub Action][liquibase-setup] (updated
++August 11, 2026) has nine steps, all in GitHub's own screens, with five screenshots of GitHub. The
++result is a workflow that installs Liquibase and prints its version. The database address, the
++credentials and the commands to run are on other pages. The first-party action only installs the
++CLI, and every command is written by hand as a `run:` step ([`setup-liquibase`][setup-liquibase] at
++`09a8af1`). For GitLab the docs say to fork an [example repository][liquibase-gitlab]. The pipeline
++holds a license key for the paid edition and a database password for each target.
++
++**Flyway.** Flyway Desktop is a desktop app, and it has the only in-product setup that was found:
++the "Automated Deployment" page of the Enterprise edition ([tutorial][flyway-tutorial], updated
++August 18, 2026).
++
++- A dialog first asks for the CI/CD platform, once per project: GitHub Actions, Bash or PowerShell.
++  Only GitHub Actions gets a workflow file. A team on another platform picks a script.
++- Four steps follow, named in a row across the top: Workflow, Environments, Review and Checklist.
++  Back is at the top left and Continue at the top right.
++- In Environments the user builds the deploy order: a row of cards that starts at the repository,
++  one card per deployment step, each edited in a side panel, with an optional manual review.
++- Review shows the whole file, which the user can edit and copy.
++- Checklist lists what is left to do in GitHub: create a personal access token, configure GitHub
++  Environments when a step needs a manual review, and add the secrets `FLYWAY_EMAIL`,
++  `FLYWAY_TOKEN`, and a user and a password for each environment.
++- Finish saves `deployment.yml` into the local repository folder and reminds the user to commit, to
++  push and to add the secrets. The generated workflow starts on a manual run.
++- The pipeline signs in with an email and a personal access token, and connects to each database
++  with its own user and password ([`setup-flyway`][setup-flyway] at `ebb315e`,
++  [`flyway-github-actions`][flyway-actions] at `1da52b6`).
++
++The three side by side, with this design:
++
++| | Atlas | Liquibase | Flyway | This design |
++|---|---|---|---|---|
++| Where setup happens | A terminal command, or a docs guide | A docs page | A wizard in a desktop app, Enterprise edition | The project's GitOps page |
++| What the user goes through | About six prompts | Nine steps in GitHub's screens | One dialog and four steps | Three steps |
++| CI platform | The command: GitHub only. The guide: asked first, six platforms | One docs page per platform | Asked first. GitHub Actions gets a workflow file, the rest get a script | Not asked. Read from the workload identity. GitHub Actions and GitLab CI |
++| Deploy targets and their order | The guide's workflow takes one database address, from a secret | Written by hand | Built by the user, one card per deployment step | Read from the environments of the picked databases |
++| Who writes the workflow file | The command, in a pull request. In the guide, the user | The user | The app, into the local folder. The user commits it | The page generates it. The owner adds it to the repository |
++| Secrets the user stores | 2 in the guide. The command stores the token itself | A license key, and a password per target | 2, and 2 more per environment | None |
++| How the pipeline signs in | A long-lived token | A license key. No hosted service is in the deploy path | An email and a personal access token | The job's own OIDC token |
++| Explains the git provider's screens | Partly. One sentence on where the secrets go | Yes. Most of the page | Partly. One checklist line per item | No |
++| Confirms that setup worked | No | Partly. The user reads the workflow log | No | No (see "Not in this PR") |
++
++What the research shows:
++
++1. **A generated file asks less of the user than an assembled one.** The two paths that generate the
++   file, Atlas's command and Flyway's wizard, ask a handful of questions. The docs-only path takes
++   nine steps and still leaves the database address, the credentials and the commands to other
++   pages. This design generates the files (D5).
++2. **Each tool asks for what it cannot know.** Atlas asks for a token, a directory and a driver.
++   Flyway asks for the platform and the environments, because a desktop app has no record of either.
++   Bytebase already holds the databases, their environments and the identity, so setup asks two
++   questions and reads the rest (D6).
++3. **Stored secrets are what make the other setups long.** Each of the three keeps long-lived
++   secrets in the CI platform's secret store: 2 in Atlas's guide, and 8 in Flyway for a test, a
++   production and a build database. Flyway's Checklist step and half of the steps in Atlas's guide
++   exist to put them there. A workload identity stores none, so setup has no such step (D11).
++4. **The deploy order is the user's work in the other tools.** Flyway has the user build it card by
++   card. Atlas's guide and Liquibase leave it to the YAML. Here the environments of the picked
++   databases already define it, so step 1 shows the order and asks nothing (D3).
++5. **Only a tool that holds the user's git login can put the file in the repository.** Atlas's
++   command opens the pull request because it runs as the user in a terminal. Flyway writes to a
++   local folder because it is a desktop app. Bytebase is a server with no access to the repository,
++   so the owner adds the files (see "Alternatives considered").
++6. **None of the three uses the pipeline's own OIDC token to sign in to its service, and none
++   confirms from inside the product that setup worked.** For both, there is no pattern in these
++   tools to weigh. Sign-in follows the workload identity dialog of [#21942]. A check that setup
++   worked is left out (see "Not in this PR").
++
++- **Taken:** the files are generated from the user's answers (Atlas's command, Flyway). Every step
++  is named in one row, and each step asks one thing (Flyway). Each file has a copy button (Flyway).
++  The last step ends on what is still to do, in one sentence (Flyway's reminder after Finish).
++- **Left out:** asking for the platform (Flyway, Atlas's guide), because the workload identity
++  already records it. Building the deploy order by hand (Flyway), because the environments define
++  it. A Review step and a Checklist step (Flyway), because each step here already shows the result
++  of its decision and there is no secret to add. Editing the file inside the product (Flyway),
++  because the owner edits it in the repository. Opening the pull request for the user (Atlas),
++  because Bytebase has no access to the repository. Screenshots of the git provider's screens
++  (Liquibase), because the owner knows their git provider.
 +
 +### R2 · What makes an in-product setup guide work
 +
@@ -381,6 +469,35 @@ index 0000000..ff88f05
 +
 +## Alternatives considered
 +
++**The setup approach**
++
++These come from the other tools' setups (R1).
++
++- **A docs guide with YAML to copy, and no setup page (Liquibase, Atlas's guide).** Rejected. A page
++  of docs cannot hold the owner's values. The owner would type the project, the targets, the
++  identity and the Bytebase address into the YAML by hand, which is part 3 of the problem.
++- **A command in the terminal that asks the questions and opens the pull request (Atlas's `gh atlas
++  init-action`).** Rejected for this change. It needs a client on the owner's machine that holds
++  their git login, and one client per git provider. The two decisions are about things that live in
++  Bytebase, the databases and the identity, so the owner would still come to Bytebase to make them.
++  Setup from outside the page is a separate question
++  ([BYT-10425](https://linear.app/bytebase/issue/BYT-10425)).
++- **Bytebase adds the files to the repository itself.** Rejected. It needs write access to the
++  repository, so Bytebase would have to store a git provider credential or have an app installed
++  there. A workload identity lets the repository sign in to Bytebase with no stored secret, and this
++  would add a stored secret in the other direction.
++- **Building the deploy order in setup, one card per environment (Flyway).** Rejected. The
++  environments and their order already exist in Bytebase, and the rollout follows them. A second
++  order made in setup could disagree with the one the rollout uses.
++- **A Review step and a Checklist step after the files (Flyway).** Rejected. Flyway needs them
++  because its file can be edited in the wizard and its workflow needs secrets and GitHub
++  Environments. Here each step already shows its result, and nothing is left to set up in the git
++  provider except adding the files.
++- **Generating a script for other CI platforms (Flyway's Bash and PowerShell).** Rejected for this
++  change (D11). Each platform issues its job token in its own way, and the workload identity dialog
++  has presets for GitHub Actions and GitLab CI only. The scope line sends an owner on another
++  platform to the docs.
++
 +**The step set**
 +
 +- **Sign-in first (Workload identity, then Databases).** Rejected. The databases are what the owner
@@ -540,6 +657,16 @@ index 0000000..ff88f05
 +- The workload identity and service account list pages
 +  ([BYT-10511](https://linear.app/bytebase/issue/BYT-10511)).
 +
++[ariga/gh-atlas]: https://github.com/ariga/gh-atlas
++[atlas-setup]: https://atlasgo.io/versioned/setup-cicd
++[atlas-github]: https://atlasgo.io/guides/ci-platforms/github-versioned
++[setup-atlas]: https://github.com/ariga/setup-atlas/blob/4060c70f266b5c63d372dc0c707ea54303139494/action.yml
++[liquibase-setup]: https://docs.liquibase.com/secure/user-guide-5-0/set-up-your-liquibase-github-action
++[setup-liquibase]: https://github.com/liquibase/setup-liquibase/blob/09a8af19c0c87ccbbe9a154dce0e716b3add0dcd/README.md
++[liquibase-gitlab]: https://contribute.liquibase.com/extensions-integrations/directory/integration-docs/gitlab-ci-cd/
++[flyway-tutorial]: https://documentation.red-gate.com/fd/tutorial-generate-a-github-actions-deployment-workflow-with-flyway-desktop-342852947.html
++[setup-flyway]: https://github.com/red-gate/setup-flyway/blob/ebb315ee386e853d5e6e58d2529f1665b61b31a5/action.yml
++[flyway-actions]: https://github.com/red-gate/flyway-github-actions/tree/1da52b65e2864a99fc48ab02ce0e6b5f28749636
 +[#21942]: https://github.com/bytebase/bytebase/pull/21942
 +[#21971]: https://github.com/bytebase/bytebase/pull/21971
 +[#21974]: https://github.com/bytebase/bytebase/pull/21974

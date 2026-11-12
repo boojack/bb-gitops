@@ -10,9 +10,9 @@ c91583b6d0ceaacff997d478d17f2f1d1b78b6c434045a1dd23bdd2cf8c34c27  0009-drop-toke
 7a11c154859e78219b6e207f0aba84618bc4815e5e2df2bc67cac4dca7118d9e  0010-cut-long-workflow-files-with-show-all.diff
 047068ae89c49cc85e15c27db118368e6debbaa3555b550e8c9f2c1f32ed09d8  0011-remove-file-labels-in-step-3.diff
 ff94b8e4db00ba018d98cae54bd7f5721506d64d213b881bb8cd61157c890dfa  0012-show-git-provider-logo.diff
-bdec9f969b54f5d134731c7db8c157c536b8e9a733e7e25a9217f818ae0c4b5a  gitops-setup-page.v9.md
-090ea627476917bb09d994dbee39c53c9e09eb3449e68f42a88a5d829a242a51  pr/0001-docs-design-GitOps-setup-page-BYT-10423.patch
-cba94402a81dfc46f4f8f28ee3105629f020562403b51310f0979a9020c9cad8  pr/0002-feat-gitops-build-the-workflow-files-from-the-picked.patch
-183d115dcbdcf9f37a7066f104b8bf459b82a76bd563f1147e69aadd1a1fbbc3  pr/0003-feat-gitops-show-the-deploy-order-of-the-picked-data.patch
-2826ec9054b5cea9efa51f3fb939009ee503dd0eda3c274108512f8f8f077cb5  pr/0004-feat-gitops-options-for-the-setup-steps-on-shared-pi.patch
-72a6264bd6841a5343e6680ae78d296b3a0e63448ee5afd9a1de7791c42a275a  pr/0005-feat-gitops-turn-the-GitOps-page-into-a-three-step-s.patch
+1095734bc300a6979c6fed5f3659a7e3764435d92f8dac06d22720c1caa06e1b  gitops-setup-page.v10.md
+05565ff463405c7ff3decaaa17b0dab93c04acead8dfab06ab0e8dfafa8a276b  pr/0001-docs-design-GitOps-setup-page-BYT-10423.patch
+d535600b13ac2e8fbf13a6ead0b22a13b8cbcd67304f2bea8be5895e81fe7589  pr/0002-feat-gitops-build-the-workflow-files-from-the-picked.patch
+5de594fa8d8314434224d0e3425fd7d1014af176617815ef4c636153ded70eeb  pr/0003-feat-gitops-show-the-deploy-order-of-the-picked-data.patch
+4be3370e6cf2400b2026ce39fe6034f62f453c57e119939da1877f41d2c698cf  pr/0004-feat-gitops-options-for-the-setup-steps-on-shared-pi.patch
+aa228d47d94a936885625af4c012b936a773d2b767c78b2e40b02141cb9a41f8  pr/0005-feat-gitops-turn-the-GitOps-page-into-a-three-step-s.patch

@@ -1,6 +1,6 @@
-From adc2c58bb015a7f2edcdc509899798f444e9fc47 Mon Sep 17 00:00:00 2001
+From 691424aeb239111ca2d580dd6d970f0a861793cf Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
-Date: Thu, 12 Nov 2026 03:10:48 +0000
+Date: Thu, 12 Nov 2026 03:22:01 +0000
 Subject: [PATCH 3/5] feat(gitops): show the deploy order of the picked
  databases (BYT-10423)
 
