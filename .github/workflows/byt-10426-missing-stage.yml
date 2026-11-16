@@ -1,0 +1,81 @@
+name: BYT-10426 missing stage
+# The workflow has a deploy job for test, stage and prod, but the only target
+# database is in stage. The rollout therefore has one stage: stage.
+on:
+  push:
+    branches: [byt-10426-missing-stage-test]
+permissions:
+  id-token: write
+  contents: read
+env:
+  BYTEBASE_URL: https://a1c3-23-106-129-101.ngrok-free.app
+  BYTEBASE_WORKLOAD_IDENTITY: boojack-ci@bbdev.workload.bytebase.com
+  BYTEBASE_PROJECT: projects/bbdev
+  STAGE_DB: instances/bbdev/databases/postgres
+  ACTION: ${{ github.workspace }}/byt10426/bin/bytebase-action
+jobs:
+  create-rollout:
+    runs-on: ubuntu-latest
+    outputs:
+      plan: ${{ steps.plan.outputs.plan }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unpack the action
+        run: xz -d byt10426/bin/bytebase-action.xz && chmod +x byt10426/bin/bytebase-action
+      - name: Create rollout
+        run: |
+          $ACTION rollout --url=$BYTEBASE_URL --project=$BYTEBASE_PROJECT \
+            --targets=$STAGE_DB --file-pattern='byt10426/migrations/*.sql' \
+            --output=$RUNNER_TEMP/rollout.json
+      - id: plan
+        run: echo "plan=$(jq -r .plan $RUNNER_TEMP/rollout.json)" >> $GITHUB_OUTPUT
+
+  # The rollout has no test stage.
+  deploy-to-test:
+    needs: create-rollout
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unpack the action
+        run: xz -d byt10426/bin/bytebase-action.xz && chmod +x byt10426/bin/bytebase-action
+      - name: Deploy to test
+        run: |
+          $ACTION rollout --url=$BYTEBASE_URL --project=$BYTEBASE_PROJECT \
+            --plan=${{ needs.create-rollout.outputs.plan }} \
+            --target-stage=environments/test --output=$RUNNER_TEMP/result.json
+      - name: Show the outcome
+        if: always()
+        run: jq '{outcome: .result.outcome, stages: [.result.stages[] | {environment, taskCounts}]}' $RUNNER_TEMP/result.json
+
+  deploy-to-stage:
+    needs: [create-rollout, deploy-to-test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unpack the action
+        run: xz -d byt10426/bin/bytebase-action.xz && chmod +x byt10426/bin/bytebase-action
+      - name: Deploy to stage
+        run: |
+          $ACTION rollout --url=$BYTEBASE_URL --project=$BYTEBASE_PROJECT \
+            --plan=${{ needs.create-rollout.outputs.plan }} \
+            --target-stage=environments/stage --output=$RUNNER_TEMP/result.json
+      - name: Show the outcome
+        if: always()
+        run: jq '{outcome: .result.outcome, stages: [.result.stages[] | {environment, taskCounts}]}' $RUNNER_TEMP/result.json
+
+  # The rollout has no prod stage.
+  deploy-to-prod:
+    needs: [create-rollout, deploy-to-stage]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unpack the action
+        run: xz -d byt10426/bin/bytebase-action.xz && chmod +x byt10426/bin/bytebase-action
+      - name: Deploy to prod
+        run: |
+          $ACTION rollout --url=$BYTEBASE_URL --project=$BYTEBASE_PROJECT \
+            --plan=${{ needs.create-rollout.outputs.plan }} \
+            --target-stage=environments/prod --output=$RUNNER_TEMP/result.json
+      - name: Show the outcome
+        if: always()
+        run: jq '{outcome: .result.outcome, stages: [.result.stages[] | {environment, taskCounts}]}' $RUNNER_TEMP/result.json
