@@ -45,7 +45,8 @@ jobs:
             --target-stage=environments/test --output=$RUNNER_TEMP/result.json
       - name: Show the outcome
         if: always()
-        run: jq '{outcome: .result.outcome, stages: [.result.stages[] | {environment, taskCounts}]}' $RUNNER_TEMP/result.json
+        run: |
+          jq '{outcome: .result.outcome, stages: [.result.stages[] | {environment, taskCounts}]}' $RUNNER_TEMP/result.json
 
   deploy-to-stage:
     needs: [create-rollout, deploy-to-test]
@@ -61,7 +62,8 @@ jobs:
             --target-stage=environments/stage --output=$RUNNER_TEMP/result.json
       - name: Show the outcome
         if: always()
-        run: jq '{outcome: .result.outcome, stages: [.result.stages[] | {environment, taskCounts}]}' $RUNNER_TEMP/result.json
+        run: |
+          jq '{outcome: .result.outcome, stages: [.result.stages[] | {environment, taskCounts}]}' $RUNNER_TEMP/result.json
 
   # The rollout has no prod stage.
   deploy-to-prod:
@@ -78,4 +80,5 @@ jobs:
             --target-stage=environments/prod --output=$RUNNER_TEMP/result.json
       - name: Show the outcome
         if: always()
-        run: jq '{outcome: .result.outcome, stages: [.result.stages[] | {environment, taskCounts}]}' $RUNNER_TEMP/result.json
+        run: |
+          jq '{outcome: .result.outcome, stages: [.result.stages[] | {environment, taskCounts}]}' $RUNNER_TEMP/result.json
