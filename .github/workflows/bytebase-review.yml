@@ -1,0 +1,29 @@
+name: Bytebase SQL review
+on:
+  pull_request:
+    paths: ["migrations/*.sql"]
+jobs:
+  sql-review:
+    # Reviews pull requests into the default branch, the branch that deploys.
+    if: github.base_ref == github.event.repository.default_branch
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: write
+    runs-on: ubuntu-latest
+    container:
+      image: bytebase/bytebase-action:3.25.0
+    env:
+      BYTEBASE_URL: "https://a90b-23-106-129-101.ngrok-free.app"
+      BYTEBASE_WORKLOAD_IDENTITY: boojack-ci@bbdev.workload.bytebase.com
+    steps:
+      - uses: actions/checkout@v7
+      - name: SQL review
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          bytebase-action check \
+            --url=$BYTEBASE_URL \
+            --project=projects/bbdev \
+            --targets=instances/bbdev/databases/postgres \
+            --file-pattern=migrations/*.sql
