@@ -12,10 +12,10 @@ jobs:
       pull-requests: write
     runs-on: ubuntu-latest
     container:
-      image: bytebase/bytebase-action:cloud
+      image: bytebase/bytebase-action:3.25.0
     env:
-      BYTEBASE_URL: "https://cloud.bytebase.com"
-      BYTEBASE_WORKLOAD_IDENTITY: sb-employee@gitops-elg0.workload.bytebase.com
+      BYTEBASE_URL: "https://a90b-23-106-129-101.ngrok-free.app"
+      BYTEBASE_WORKLOAD_IDENTITY: boojack-ci@bbdev.workload.bytebase.com
     steps:
       - uses: actions/checkout@v7
       - name: SQL review
@@ -24,6 +24,6 @@ jobs:
         run: |
           bytebase-action check \
             --url=$BYTEBASE_URL \
-            --project=projects/gitops-elg0 \
-            --targets=instances/sb-employee-cvz1/databases/postgres \
+            --project=projects/bbdev \
+            --targets=instances/bbdev/databases/postgres \
             --file-pattern=migrations/*.sql
