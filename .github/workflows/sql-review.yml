@@ -1,4 +1,4 @@
-name: SQL Review
+name: Bytebase SQL review
 on:
   pull_request:
     branches: ["main"]
@@ -6,33 +6,23 @@ on:
 jobs:
   sql-review:
     permissions:
+      contents: read
       id-token: write
       pull-requests: write
     runs-on: ubuntu-latest
     container:
       image: bytebase/bytebase-action:cloud
     env:
-      BYTEBASE_URL: https://cloud.bytebase.com
-      BYTEBASE_WORKLOAD_IDENTITY: sb-employee@gitops-elg0.workload.bytebase.com
+      BYTEBASE_URL: "https://cloud.bytebase.com"
+      BYTEBASE_WORKLOAD_IDENTITY: boojack-ci@gitops-elg0.workload.bytebase.com
     steps:
-      - uses: actions/checkout@v4
-      - name: Exchange token
-        id: bytebase-auth
-        run: |
-          OIDC_TOKEN=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=bytebase" | jq -r '.value')
-          ACCESS_TOKEN=$(curl -s -X POST "$BYTEBASE_URL/v1/auth:exchangeToken" \
-            -H "Content-Type: application/json" \
-            -d "{\"token\":\"$OIDC_TOKEN\",\"email\":\"$BYTEBASE_WORKLOAD_IDENTITY\"}" \
-            | jq -r '.accessToken')
-          echo "access-token=$ACCESS_TOKEN" >> $GITHUB_OUTPUT
-      - name: SQL Review
+      - uses: actions/checkout@v7
+      - name: SQL review
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           bytebase-action check \
-            --url=$BYTEBASE_URL \
-            --access-token=${{ steps.bytebase-auth.outputs.access-token }} \
+            --url="$BYTEBASE_URL" \
             --project=projects/gitops-elg0 \
             --targets=instances/sb-employee-cvz1/databases/postgres \
-            --file-pattern=migrations/*.sql
+            --file-pattern="migrations/*.sql"
